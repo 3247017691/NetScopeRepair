@@ -5,43 +5,54 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1080">
     <StackPanel>
+        <!-- Top Summary Card -->
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
                 <DockPanel LastChildFill="False">
-                    <StackPanel DockPanel.Dock="Left">
+                    <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
                         <TextBlock Text="{Binding DataLabel}" Style="{StaticResource H2}" />
-                        <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Caption}" Margin="0,4,0,0" MaxWidth="720" />
+                        <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Caption}"
+                                   HorizontalAlignment="Left" Margin="0,4,0,0" />
                     </StackPanel>
                     <Button DockPanel.Dock="Right" Content="重新读取时间线"
                             Command="{Binding DataContext.RefreshTimelineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                            Style="{StaticResource QuietButton}" VerticalAlignment="Top" />
+                            Style="{StaticResource QuietButton}" VerticalAlignment="Center" />
                 </DockPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                    <Border Style="{StaticResource Pill}" Background="#F1F4F9" Margin="0,0,8,0">
-                        <TextBlock Text="{Binding CountsText}" FontSize="12" />
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
+                    <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                            CornerRadius="999" Padding="10,4" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding CountsText}" FontSize="12" Foreground="{StaticResource Ink}" />
                     </Border>
-                    <Border Style="{StaticResource Pill}" Background="#FFF4E0" Margin="0,0,8,0"
+                    <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                            CornerRadius="999" Padding="10,4"
                             Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="有新的采集，点击右侧按钮刷新" FontSize="12" Foreground="{StaticResource Warn}" />
+                        <TextBlock Text="有新的采集，点击右侧按钮刷新" FontSize="12" Foreground="{StaticResource Warn}" FontWeight="Medium" />
                     </Border>
                 </StackPanel>
-                <TextBlock Text="{Binding SessionPath}" Style="{StaticResource Mono}" FontSize="11"
-                           Foreground="{StaticResource Muted}" Margin="0,10,0,0" />
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                        CornerRadius="6" Padding="10,6" Margin="0,10,0,0">
+                    <TextBlock Text="{Binding SessionPath}" Style="{StaticResource Mono}" FontSize="11"
+                               Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                </Border>
             </StackPanel>
         </Border>
 
-        <Border Style="{StaticResource SectionCard}" Padding="10">
+        <!-- Modern DataGrid Card -->
+        <Border Style="{StaticResource SectionCard}" Padding="0" ClipToBounds="True">
             <DataGrid Style="{StaticResource DataGridStyle}" ItemsSource="{Binding Rows}"
-                      SelectedItem="{Binding SelectedRow, Mode=TwoWay}" MaxHeight="360"
+                      SelectedItem="{Binding SelectedRow, Mode=TwoWay}" MaxHeight="230"
                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="序号" Binding="{Binding Sequence}" Width="56" />
-                    <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="132" />
-                    <DataGridTextColumn Header="类型" Binding="{Binding Kind}" Width="86" />
-                    <DataGridTemplateColumn Header="状态" Width="86">
+                    <DataGridTextColumn Header="序号" Binding="{Binding Sequence}" Width="64" />
+                    <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="144" />
+                    <DataGridTextColumn Header="类型" Binding="{Binding Kind}" Width="96" />
+                    <DataGridTemplateColumn Header="状态" Width="96">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding StatusText}" Foreground="{Binding Tone}" VerticalAlignment="Center" />
+                                <Border Background="{Binding BadgeBackground}" BorderBrush="{Binding BadgeBorder}"
+                                        BorderThickness="1" CornerRadius="999" Padding="7,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding StatusText}" Foreground="{Binding Tone}" FontSize="11" FontWeight="Medium" />
+                                </Border>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -50,20 +61,25 @@
             </DataGrid>
         </Border>
 
+        <!-- Problems & Gaps 2-Column Section -->
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="14" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
+
+            <!-- 读取问题 -->
             <Border Grid.Column="0" Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="读取问题" Style="{StaticResource H2}" />
                     <ItemsControl ItemsSource="{Binding Problems}" Margin="0,8,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}" Foreground="{StaticResource Warn}" FontSize="12"
-                                           TextWrapping="Wrap" Margin="0,3" />
+                                <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,6" Margin="0,0,0,6">
+                                    <TextBlock Text="{Binding}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" />
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -81,14 +97,18 @@
                     </TextBlock>
                 </StackPanel>
             </Border>
+
+            <!-- 序号缺口与重复 -->
             <Border Grid.Column="2" Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="序号缺口与重复" Style="{StaticResource H2}" />
                     <ItemsControl ItemsSource="{Binding Gaps}" Margin="0,8,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}" Foreground="{StaticResource Warn}" FontSize="12"
-                                           TextWrapping="Wrap" Margin="0,3" />
+                                <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,6" Margin="0,0,0,6">
+                                    <TextBlock Text="{Binding}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" />
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -108,16 +128,41 @@
             </Border>
         </Grid>
 
-        <Border Style="{StaticResource SectionCard}">
+        <!-- 事件 Payload Terminal Inspector -->
+        <Border Style="{StaticResource SectionCard}" Padding="0" ClipToBounds="True">
             <StackPanel>
-                <TextBlock Text="事件 payload" Style="{StaticResource H2}" />
-                <TextBlock Text="这里显示已保存的最小化事实；凭据与订阅内容不会出现在日志中。" Style="{StaticResource Caption}"
-                           Margin="0,4,0,10" />
-                <Border Background="#0F172A" CornerRadius="8" Padding="14">
-                    <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto">
-                        <TextBlock Text="{Binding DetailJson}" FontFamily="Cascadia Mono, Consolas" FontSize="11.5"
-                                   Foreground="#D6E2F5" TextWrapping="Wrap" />
-                    </ScrollViewer>
+                <Border Padding="18,14,18,12" Background="{StaticResource Surface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="0,0,0,1">
+                    <StackPanel>
+                        <TextBlock Text="事件 payload" Style="{StaticResource H2}" />
+                        <TextBlock Text="这里显示已保存的最小化事实；凭据与订阅内容不会出现在日志中。" Style="{StaticResource Caption}"
+                                   HorizontalAlignment="Left" Margin="0,3,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Modern Terminal Card -->
+                <Border Background="#0F172A" BorderBrush="#1E293B" BorderThickness="0" Margin="14,0,14,14" CornerRadius="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="32" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <!-- Terminal Title Bar -->
+                        <Border Grid.Row="0" Background="#1E293B" CornerRadius="8,8,0,0" Padding="12,0" BorderBrush="#334155" BorderThickness="0,0,0,1">
+                            <DockPanel LastChildFill="False" VerticalAlignment="Center">
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="10" Height="10" Fill="#EF4444" Margin="0,0,6,0" Opacity="0.85" />
+                                    <Ellipse Width="10" Height="10" Fill="#F59E0B" Margin="0,0,6,0" Opacity="0.85" />
+                                    <Ellipse Width="10" Height="10" Fill="#10B981" Margin="0,0,12,0" Opacity="0.85" />
+                                    <TextBlock Text="JSON Payload · 只读最小化事实" FontFamily="Cascadia Mono, Consolas" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <!-- Terminal Content Body -->
+                        <ScrollViewer Grid.Row="1" MaxHeight="280" VerticalScrollBarVisibility="Auto" Padding="14,12">
+                            <TextBlock Text="{Binding DetailJson}" FontFamily="Cascadia Mono, Consolas" FontSize="11.5"
+                                       Foreground="#E2E8F0" TextWrapping="Wrap" LineHeight="18" />
+                        </ScrollViewer>
+                    </Grid>
                 </Border>
             </StackPanel>
         </Border>

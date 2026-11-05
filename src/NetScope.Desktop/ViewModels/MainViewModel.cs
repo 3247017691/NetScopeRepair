@@ -4,7 +4,7 @@ using NetScope.Storage;
 
 namespace NetScope.Desktop.ViewModels;
 
-public sealed record NavSection(string Title, string Caption, ViewModelBase ViewModel);
+public sealed record NavSection(string Title, string Caption, ViewModelBase ViewModel, string IconGeometry = "");
 
 /// <summary>
 /// Composition root for the shell. It owns the read-only observation session and routes session
@@ -43,13 +43,20 @@ public sealed class MainViewModel : ViewModelBase
 
         Sections = new[]
         {
-            new NavSection("首页", "当前状态与观察会话", Home),
-            new NavSection("时间线", "事件、缺口与损坏行", Timeline),
-            new NavSection("诊断与证据", "结论、证据与反证", Diagnoses),
-            new NavSection("多客户端", "只读状态与依赖解释", Clients),
-            new NavSection("导出", "脱敏预览与本地 ZIP", Export),
-            new NavSection("设置", "观察与探测目标", Settings),
-            new NavSection("帮助", "离线说明与边界", Help),
+            new NavSection("首页", "当前状态与观察会话", Home,
+                "M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z"),
+            new NavSection("时间线", "事件、缺口与损坏行", Timeline,
+                "M3 12h4l3 8 4-16 3 8h4"),
+            new NavSection("诊断与证据", "结论、证据与反证", Diagnoses,
+                "M12 2l8 4v6c0 5.25-3.5 10-8 11-4.5-1-8-5.75-8-11V6l8-4zm-2 10l2 2 4-4"),
+            new NavSection("多客户端", "只读状态与依赖解释", Clients,
+                "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"),
+            new NavSection("导出", "脱敏预览与本地 ZIP", Export,
+                "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"),
+            new NavSection("设置", "观察与探测目标", Settings,
+                "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"),
+            new NavSection("帮助", "离线说明与边界", Help,
+                "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm-1-7h2v2h-2zm1-9a3.5 3.5 0 0 0-3.5 3.5h2a1.5 1.5 0 1 1 3 0c0 1-1.5 1.5-2.2 2.2-.5.5-.8 1.1-.8 1.8h2c0-.5.2-.8.5-1.1.7-.7 2-1.4 2-2.9A3.5 3.5 0 0 0 12 6z"),
         };
         _selectedSection = Sections[0];
         LoadDemoCommand = new AsyncRelayCommand(() => LoadDemoAsync(), null, ex => _ = HandleErrorAsync(ex));

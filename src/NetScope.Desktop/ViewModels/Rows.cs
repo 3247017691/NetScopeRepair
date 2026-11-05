@@ -4,7 +4,11 @@ using NetScope.Domain;
 
 namespace NetScope.Desktop.ViewModels;
 
-public sealed record DomainRow(string Name, string StatusText, string Detail, Brush Tone);
+public sealed record DomainRow(string Name, string StatusText, string Detail, Brush Tone)
+{
+    public Brush BadgeBackground => UiText.SoftBackground(Tone);
+    public Brush BadgeBorder => UiText.SoftBorder(Tone);
+}
 
 public sealed record EvidenceRow(string EvidenceId, string Kind, string Summary, string Facts);
 
@@ -19,7 +23,11 @@ public sealed record DiagnosisRow(
     string MissingText,
     string ScopeText,
     Brush Tone,
-    IReadOnlyList<EvidenceRow> Evidence);
+    IReadOnlyList<EvidenceRow> Evidence)
+{
+    public Brush BadgeBackground => UiText.SoftBackground(Tone);
+    public Brush BadgeBorder => UiText.SoftBorder(Tone);
+}
 
 public sealed record TimelineRow(
     int Sequence,
@@ -29,7 +37,11 @@ public sealed record TimelineRow(
     string Summary,
     string EventId,
     string PayloadJson,
-    Brush Tone);
+    Brush Tone)
+{
+    public Brush BadgeBackground => UiText.SoftBackground(Tone);
+    public Brush BadgeBorder => UiText.SoftBorder(Tone);
+}
 
 public sealed record ClientEvidenceRow(string ClientId, string ProvenanceText, string FactsText, string ValidityText, string? SourcePath);
 
@@ -58,11 +70,44 @@ public sealed record DependencyRow(
 /// <summary>Display-only mapping. It never upgrades an observation into a stronger claim.</summary>
 public static class UiText
 {
-    public static readonly Brush OkBrush = Frozen(0x1B, 0x7F, 0x5A);
-    public static readonly Brush WarnBrush = Frozen(0x9A, 0x5B, 0x00);
-    public static readonly Brush BadBrush = Frozen(0xB3, 0x26, 0x1E);
-    public static readonly Brush GapBrush = Frozen(0x6B, 0x72, 0x80);
-    public static readonly Brush AccentBrush = Frozen(0x2F, 0x6F, 0xED);
+    public static readonly Brush OkBrush = Frozen(0x05, 0x96, 0x69);
+    public static readonly Brush WarnBrush = Frozen(0xD9, 0x77, 0x06);
+    public static readonly Brush BadBrush = Frozen(0xDC, 0x26, 0x26);
+    public static readonly Brush GapBrush = Frozen(0x47, 0x55, 0x69);
+    public static readonly Brush AccentBrush = Frozen(0x25, 0x63, 0xEB);
+
+    public static readonly Brush OkBgBrush = Frozen(0xEC, 0xFD, 0xF5);
+    public static readonly Brush OkBorderBrush = Frozen(0xA7, 0xF3, 0xD0);
+
+    public static readonly Brush WarnBgBrush = Frozen(0xFF, 0xFB, 0xEB);
+    public static readonly Brush WarnBorderBrush = Frozen(0xFD, 0xE6, 0x8A);
+
+    public static readonly Brush BadBgBrush = Frozen(0xFE, 0xF2, 0xF2);
+    public static readonly Brush BadBorderBrush = Frozen(0xFE, 0xCA, 0xCA);
+
+    public static readonly Brush GapBgBrush = Frozen(0xF1, 0xF5, 0xF9);
+    public static readonly Brush GapBorderBrush = Frozen(0xCB, 0xD5, 0xE1);
+
+    public static readonly Brush AccentBgBrush = Frozen(0xEF, 0xF6, 0xFF);
+    public static readonly Brush AccentBorderBrush = Frozen(0xBF, 0xDB, 0xFE);
+
+    public static Brush SoftBackground(Brush? tone)
+    {
+        if (ReferenceEquals(tone, OkBrush)) return OkBgBrush;
+        if (ReferenceEquals(tone, WarnBrush)) return WarnBgBrush;
+        if (ReferenceEquals(tone, BadBrush)) return BadBgBrush;
+        if (ReferenceEquals(tone, AccentBrush)) return AccentBgBrush;
+        return GapBgBrush;
+    }
+
+    public static Brush SoftBorder(Brush? tone)
+    {
+        if (ReferenceEquals(tone, OkBrush)) return OkBorderBrush;
+        if (ReferenceEquals(tone, WarnBrush)) return WarnBorderBrush;
+        if (ReferenceEquals(tone, BadBrush)) return BadBorderBrush;
+        if (ReferenceEquals(tone, AccentBrush)) return AccentBorderBrush;
+        return GapBorderBrush;
+    }
 
     public static string StatusText(EventStatus status) => status switch
     {

@@ -5,38 +5,53 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1080">
     <StackPanel>
+        <!-- Top Info Card -->
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
                 <TextBlock Text="离线帮助" Style="{StaticResource H2}" />
                 <TextBlock Text="没有网络、没有 API Key 也能查看本页。M1 不会上传日志，也不会请求 DeepSeek。"
-                           Style="{StaticResource Caption}" Margin="0,4,0,0" />
-                <Grid Margin="0,12,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="数据目录" Foreground="{StaticResource Muted}" FontSize="12" />
-                    <TextBlock Grid.Column="1" Text="{Binding DataRoot}" Style="{StaticResource Mono}" FontSize="11" />
-                </Grid>
-                <Grid Margin="0,6,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="会话文件" Foreground="{StaticResource Muted}" FontSize="12" />
-                    <TextBlock Grid.Column="1" Text="{Binding SessionPath}" Style="{StaticResource Mono}" FontSize="11" />
-                </Grid>
+                           Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,14" />
+
+                <!-- Data Directory & Session File Code Containers -->
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                        CornerRadius="6" Padding="14,10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="数据目录" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
+                        <Border Grid.Row="0" Grid.Column="1" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                CornerRadius="4" Padding="8,4">
+                            <TextBlock Text="{Binding DataRoot}" Style="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Ink}" />
+                        </Border>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="会话文件" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
+                        <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                CornerRadius="4" Padding="8,4">
+                            <TextBlock Text="{Binding SessionPath}" Style="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Ink}" />
+                        </Border>
+                    </Grid>
+                </Border>
             </StackPanel>
         </Border>
 
+        <!-- Help Section Cards -->
         <ItemsControl ItemsSource="{Binding Sections}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border Style="{StaticResource SectionCard}">
                         <StackPanel>
                             <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" />
-                            <TextBlock Text="{Binding Body}" TextWrapping="Wrap" FontSize="12.5" Margin="0,8,0,0"
-                                       Foreground="{StaticResource Ink}" />
+                            <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,8,0,10" />
+                            <TextBlock Text="{Binding Body}" TextWrapping="Wrap" FontSize="12.5"
+                                       Foreground="{StaticResource Ink}" LineHeight="20" />
                         </StackPanel>
                     </Border>
                 </DataTemplate>

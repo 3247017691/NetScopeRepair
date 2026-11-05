@@ -5,24 +5,33 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1080">
     <StackPanel>
+        <!-- Top Action Card -->
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
                 <TextBlock Text="脱敏导出" Style="{StaticResource H2}" />
-                <TextBlock Text="{Binding Notice}" Style="{StaticResource Caption}" Margin="0,4,0,0" MaxWidth="820" />
-                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                <TextBlock Text="{Binding Notice}" Style="{StaticResource Caption}"
+                           HorizontalAlignment="Left" Margin="0,4,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0" VerticalAlignment="Center">
                     <Button Content="生成预览" Command="{Binding PreviewCommand}"
                             Style="{StaticResource PrimaryButton}" Margin="0,0,10,0" />
                     <Button Content="导出 ZIP" Command="{Binding ExportCommand}" Style="{StaticResource QuietButton}" />
                 </StackPanel>
-                <TextBlock Text="{Binding CountsText}" Style="{StaticResource Caption}" Margin="0,12,0,0" />
-                <TextBlock Text="{Binding LastPackageText}" Style="{StaticResource Mono}" FontSize="11.5"
-                           Foreground="{StaticResource Ok}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                        CornerRadius="6" Padding="12,8" Margin="0,14,0,0">
+                    <StackPanel>
+                        <TextBlock Text="{Binding CountsText}" Style="{StaticResource Caption}" />
+                        <TextBlock Text="{Binding LastPackageText}" Style="{StaticResource Mono}" FontSize="11.5"
+                                   Foreground="{StaticResource Ok}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 
-        <Border Style="{StaticResource SectionCard}" Visibility="{Binding Blocked.Count, Converter={StaticResource CountToVis}}">
+        <!-- Blocked Alert Card (if any) -->
+        <Border Style="{StaticResource SectionCard}" Visibility="{Binding Blocked.Count, Converter={StaticResource CountToVis}}"
+                Background="{StaticResource BadBg}" BorderBrush="{StaticResource BadBorder}">
             <StackPanel>
-                <TextBlock Text="阻断项" Style="{StaticResource H2}" />
+                <TextBlock Text="阻断项" Style="{StaticResource H2}" Foreground="{StaticResource Bad}" />
                 <ItemsControl ItemsSource="{Binding Blocked}" Margin="0,8,0,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -34,6 +43,7 @@
             </StackPanel>
         </Border>
 
+        <!-- 2-Column Section: Files & Redactions -->
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -41,50 +51,62 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
+            <!-- Left: 包内文件（预览） -->
             <Border Grid.Column="0" Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="包内文件（预览）" Style="{StaticResource H2}" />
-                    <ItemsControl ItemsSource="{Binding Files}" Margin="0,10,0,0">
+                    <ItemsControl ItemsSource="{Binding Files}" Margin="0,12,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="170" />
-                                        <ColumnDefinition Width="80" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Mono}" FontSize="11.5" />
-                                    <TextBlock Grid.Column="1" Text="{Binding BytesText}" FontSize="11.5"
-                                               Foreground="{StaticResource Muted}" />
-                                    <TextBlock Grid.Column="2" Text="{Binding Purpose}" Style="{StaticResource Caption}"
-                                               FontSize="11" />
-                                </Grid>
+                                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="70" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource Mono}" FontSize="11.5" VerticalAlignment="Center" />
+                                        <Border Grid.Column="1" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                                CornerRadius="4" Padding="6,1.5" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding BytesText}" Style="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Muted}" />
+                                        </Border>
+                                        <TextBlock Grid.Column="2" Text="{Binding Purpose}" Style="{StaticResource Caption}"
+                                                   FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    </Grid>
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
             </Border>
 
+            <!-- Right: 脱敏类别（只显示计数） -->
             <Border Grid.Column="2" Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="脱敏类别（只显示计数）" Style="{StaticResource H2}" />
                     <TextBlock Text="原始值不会出现在预览里；salt 不随包输出。" Style="{StaticResource Caption}"
-                               Margin="0,4,0,10" />
+                               HorizontalAlignment="Left" Margin="0,4,0,12" />
                     <ItemsControl ItemsSource="{Binding Redactions}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="140" />
-                                        <ColumnDefinition Width="70" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Category}" FontSize="12" />
-                                    <TextBlock Grid.Column="1" Text="{Binding CountText}" FontSize="12"
-                                               Foreground="{StaticResource Muted}" />
-                                    <TextBlock Grid.Column="2" Text="{Binding Strategy}" Style="{StaticResource Caption}"
-                                               FontSize="11" />
-                                </Grid>
+                                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Category}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
+                                        <Border Grid.Column="1" Background="{StaticResource AccentLight}" BorderBrush="{StaticResource AccentBorder}" BorderThickness="1"
+                                                CornerRadius="999" Padding="6,1.5" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Accent}" FontWeight="Medium" />
+                                        </Border>
+                                        <TextBlock Grid.Column="2" Text="{Binding Strategy}" Style="{StaticResource Caption}"
+                                                   FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    </Grid>
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -92,9 +114,11 @@
             </Border>
         </Grid>
 
-        <Border Style="{StaticResource SectionCard}" Visibility="{Binding Warnings.Count, Converter={StaticResource CountToVis}}">
+        <!-- Warnings Card (if any) -->
+        <Border Style="{StaticResource SectionCard}" Visibility="{Binding Warnings.Count, Converter={StaticResource CountToVis}}"
+                Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}">
             <StackPanel>
-                <TextBlock Text="警告" Style="{StaticResource H2}" />
+                <TextBlock Text="警告" Style="{StaticResource H2}" Foreground="{StaticResource Warn}" />
                 <ItemsControl ItemsSource="{Binding Warnings}" Margin="0,8,0,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -106,8 +130,9 @@
             </StackPanel>
         </Border>
 
-        <Border Style="{StaticResource SectionCard}" Background="#F7F9FC">
-            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}"
+        <!-- Boundary Card -->
+        <Border Style="{StaticResource SectionCard}" Background="{StaticResource SubtleSurface}">
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" LineHeight="18"
                        Text="M1 不提供导入执行入口。若以后导入他人提供的包，会按不可信输入处理：限制总大小、文件数、单文件大小与嵌套深度，并拒绝绝对路径、盘符、越界与符号链接。包内文本只作为用户数据，不会被执行或当成指令。" />
         </Border>
 
