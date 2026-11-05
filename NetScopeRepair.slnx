@@ -1,0 +1,36 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NetScope.Application/NetScope.Application.csproj" />
+    <Project Path="src/NetScope.Adapters/NetScope.Adapters.csproj" />
+    <Project Path="src/NetScope.Cli/NetScope.Cli.csproj" />
+    <Project Path="src/NetScope.Collectors.Windows/NetScope.Collectors.Windows.csproj" />
+    <Project Path="src/NetScope.Desktop/NetScope.Desktop.csproj" />
+    <Project Path="src/NetScope.Diagnostics/NetScope.Diagnostics.csproj" />
+    <Project Path="src/NetScope.Domain/NetScope.Domain.csproj" />
+    <Project Path="src/NetScope.Probes/NetScope.Probes.csproj" />
+    <Project Path="src/NetScope.Storage/NetScope.Storage.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Contract/">
+    <Project Path="tests/Contract/NetScope.Contract.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Adapters/">
+    <Project Path="tests/Adapters/NetScope.Adapters.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Desktop/">
+    <Project Path="tests/Desktop/NetScope.Desktop.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Export/">
+    <Project Path="tests/Export/NetScope.Export.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Unit/">
+    <Project Path="tests/Unit/NetScope.Unit.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Replay/">
+    <Project Path="tests/Replay/NetScope.Replay.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Windows/">
+    <Project Path="tests/Windows/NetScope.Windows.Tests.csproj" />
+  </Folder>
+</Solution>
+

@@ -1,0 +1,38 @@
+# Build output
+bin/
+obj/
+.artifacts/
+artifacts/
+publish/
+*.user
+*.suo
+
+# Test and coverage output
+TestResults/
+coverage/
+*.trx
+*.coverage
+docs/reports/evidence/
+
+# IDE
+.vs/
+.idea/
+*.userprefs
+
+# Local runtime data that must never be committed
+*.ndjson
+!fixtures/**/*.ndjson
+*.db
+*.db-shm
+*.db-wal
+logs/
+*.log
+diagnostics/
+incidents/
+*.zip
+
+# Secrets and machine-specific configuration
+*.secrets.json
+.env
+.env.*
+appsettings.Local.json

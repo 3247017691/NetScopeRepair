@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:netscope-repair:event-envelope:1.0",
+  "title": "NetScope Repair event envelope v1.0",
+  "description": "Core envelope only. Event-specific payload schemas must be added during T01/T05. This schema does not authorize any repair.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "session_id", "boot_id", "sequence", "observed_at", "monotonic_ms", "event_type", "status", "source", "source_version", "synthetic", "refs", "payload"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "event_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "boot_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "sequence": {"type": "integer", "minimum": 1},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "monotonic_ms": {"type": "number", "minimum": 0},
+    "event_type": {"enum": ["snapshot", "probe_result", "diagnosis", "incident_marker", "collector_error", "gap", "repair_event"]},
+    "status": {"enum": ["ok", "partial", "failed", "timeout", "cancelled", "unsupported", "access_denied", "unknown"]},
+    "source": {"type": "string", "minLength": 1, "maxLength": 128},
+    "source_version": {"type": "string", "minLength": 1, "maxLength": 64},
+    "synthetic": {"type": "boolean"},
+    "refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "incident_id": {"type": "string", "minLength": 1},
+        "probe_id": {"type": "string", "minLength": 1},
+        "evidence_id": {"type": "string", "minLength": 1},
+        "diagnosis_id": {"type": "string", "minLength": 1},
+        "repair_plan_id": {"type": "string", "minLength": 1},
+        "transaction_id": {"type": "string", "minLength": 1},
+        "probe_group_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "payload": {"type": "object"}
+  }
+}

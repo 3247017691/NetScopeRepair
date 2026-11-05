@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NetScope.Domain</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\contracts\event-envelope.schema.json"
+                      LogicalName="NetScope.Domain.event-envelope.schema.json" />
+  </ItemGroup>
+
+</Project>

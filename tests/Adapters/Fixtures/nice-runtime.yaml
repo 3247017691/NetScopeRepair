@@ -1,0 +1,32 @@
+# Synthetic fixture for NetScope.Adapters tests. It contains no real user data.
+# Unknown keys below intentionally include a fake secret; the whitelist parser must never expose it.
+mixed-port: 7890
+mode: rule
+allow-lan: false
+
+tun:
+  enable: true
+  mtu: 9000
+  stack: system
+  dns-hijack: ["any:53"]
+
+dns:
+  enable: true
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 223.5.5.5
+  fallback:
+    - https://example.invalid/dns?token=SYNTHETIC_SECRET_TOKEN_9F3A7C
+
+subscriptions:
+  - name: hidden
+    url: https://example.invalid/sub?token=SYNTHETIC_SECRET_TOKEN_9F3A7C
+
+proxy-providers:
+  provider-a:
+    url: https://example.invalid/provider?key=SYNTHETIC_SECRET_TOKEN_9F3A7C
+    password: SYNTHETIC_SECRET_TOKEN_9F3A7C
+
+proxies:
+  - name: node
+    password: SYNTHETIC_SECRET_TOKEN_9F3A7C

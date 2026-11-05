@@ -1,0 +1,11 @@
+{
+  "__fixture": "synthetic fixture for NetScope.Adapters tests; no real user data",
+  "flutter.mixed-port": "7891",
+  "flutter.mode": "rule",
+  "flutter.tun.auto-route": "true",
+  "flutter.dns.mode": "fake-ip",
+  "flutter.dns.fake-ip-range": "198.18.0.1/16",
+  "flutter.subscription_url": "https://example.invalid/sub?token=SYNTHETIC_SECRET_TOKEN_9F3A7C",
+  "flutter.api_key": "SYNTHETIC_SECRET_TOKEN_9F3A7C",
+  "flutter.proxy-providers": "[{\"name\":\"provider-a\",\"password\":\"SYNTHETIC_SECRET_TOKEN_9F3A7C\"}]"
+}

@@ -1,0 +1,4 @@
+{
+  "flutter.mode": "rule",
+  "flutter.mixed-port": "7891",
+  "flutter.subscription_url": "https://example.invalid/sub?token=SYNTHETIC_SECRET_TOKEN_9F3A7C",

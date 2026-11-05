@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NetScope.Desktop</RootNamespace>
+    <AssemblyName>NetScope.Desktop</AssemblyName>
+    <ApplicationIcon />
+    <Title>NetScope Repair</Title>
+    <Product>NetScope Repair</Product>
+    <Description>Read-only proxy network diagnostics for Windows</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+    <Using Include="System.IO" />
+    <Using Include="System.Linq" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetScope.Adapters\NetScope.Adapters.csproj" />
+    <ProjectReference Include="..\NetScope.Application\NetScope.Application.csproj" />
+    <ProjectReference Include="..\NetScope.Collectors.Windows\NetScope.Collectors.Windows.csproj" />
+    <ProjectReference Include="..\NetScope.Diagnostics\NetScope.Diagnostics.csproj" />
+    <ProjectReference Include="..\NetScope.Domain\NetScope.Domain.csproj" />
+    <ProjectReference Include="..\NetScope.Probes\NetScope.Probes.csproj" />
+    <ProjectReference Include="..\NetScope.Storage\NetScope.Storage.csproj" />
+  </ItemGroup>
+
+</Project>
