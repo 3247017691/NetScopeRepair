@@ -79,14 +79,17 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="92" />
-                                            <ColumnDefinition Width="68" />
+                                            <ColumnDefinition Width="92" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource Mono}" FontWeight="SemiBold"
                                                    FontSize="12" VerticalAlignment="Center" />
-                                        <Border Grid.Column="1" Background="{Binding BadgeBackground}" BorderBrush="{Binding BadgeBorder}"
-                                                BorderThickness="1" CornerRadius="999" Padding="6,1.5" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding StatusText}" Foreground="{Binding Tone}" FontSize="11" FontWeight="Medium" />
+                                        <Border Grid.Column="1" Background="{Binding BadgeBackground}" BorderThickness="0"
+                                                CornerRadius="11" Padding="8,2.5" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Ellipse Width="6" Height="6" Fill="{Binding Tone}" VerticalAlignment="Center" Margin="0,0,5.5,0" />
+                                                <TextBlock Text="{Binding StatusText}" Foreground="{Binding Tone}" FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center" />
+                                            </StackPanel>
                                         </Border>
                                         <TextBlock Grid.Column="2" Text="{Binding Detail}" Style="{StaticResource Caption}"
                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="6,0,0,0" />
@@ -168,10 +171,13 @@
                                 <StackPanel>
                                     <DockPanel LastChildFill="False">
                                         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <!-- Soft Semantic Badge -->
-                                            <Border Background="{Binding BadgeBackground}" BorderBrush="{Binding BadgeBorder}" BorderThickness="1"
-                                                    CornerRadius="999" Padding="8,2" Margin="0,0,8,0">
-                                                <TextBlock Text="{Binding LevelText}" Foreground="{Binding Tone}" FontSize="11" FontWeight="Medium" />
+                                            <!-- Magpie Soft Capsule Badge -->
+                                            <Border Background="{Binding BadgeBackground}" BorderThickness="0"
+                                                    CornerRadius="11" Padding="9,3" Margin="0,0,8,0">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Ellipse Width="6" Height="6" Fill="{Binding Tone}" VerticalAlignment="Center" Margin="0,0,5.5,0" />
+                                                    <TextBlock Text="{Binding LevelText}" Foreground="{Binding Tone}" FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center" />
+                                                </StackPanel>
                                             </Border>
                                             <TextBlock Text="{Binding RuleId}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
                                             <TextBlock Text="{Binding RuleVersion, StringFormat=v{0}}" Style="{StaticResource Caption}"

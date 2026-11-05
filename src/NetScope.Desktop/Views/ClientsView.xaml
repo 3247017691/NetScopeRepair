@@ -28,15 +28,21 @@
                             <DockPanel LastChildFill="False">
                                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding DisplayName}" Style="{StaticResource H2}" VerticalAlignment="Center" />
-                                    <!-- Running Status Pill -->
-                                    <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                                            CornerRadius="999" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding RunningText}" FontSize="11" Foreground="{StaticResource Ink}" FontWeight="Medium" />
+                                    <!-- Running Status Pill (Magpie Tinted Capsule) -->
+                                    <Border Background="{Binding RunningBg}" BorderThickness="0"
+                                            CornerRadius="11" Padding="9,3" Margin="10,0,0,0" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Ellipse Width="6" Height="6" Fill="{Binding RunningTone}" VerticalAlignment="Center" Margin="0,0,5.5,0" />
+                                            <TextBlock Text="{Binding RunningText}" FontSize="11.5" Foreground="{Binding RunningTone}" FontWeight="Medium" VerticalAlignment="Center" />
+                                        </StackPanel>
                                     </Border>
-                                    <!-- TUN Status Pill -->
-                                    <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                                            CornerRadius="999" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding TunText}" FontSize="11" Foreground="{StaticResource Ink}" FontWeight="Medium" />
+                                    <!-- TUN Status Pill (Magpie Tinted Capsule) -->
+                                    <Border Background="{Binding TunBg}" BorderThickness="0"
+                                            CornerRadius="11" Padding="9,3" Margin="6,0,0,0" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Ellipse Width="6" Height="6" Fill="{Binding TunTone}" VerticalAlignment="Center" Margin="0,0,5.5,0" />
+                                            <TextBlock Text="{Binding TunText}" FontSize="11.5" Foreground="{Binding TunTone}" FontWeight="Medium" VerticalAlignment="Center" />
+                                        </StackPanel>
                                     </Border>
                                 </StackPanel>
                             </DockPanel>

@@ -72,9 +72,12 @@
                                                 <Border x:Name="ActiveBar" Grid.Column="0" Background="Transparent" CornerRadius="2" Margin="0,2,0,2" />
                                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                                     <DockPanel LastChildFill="False">
-                                                        <Border DockPanel.Dock="Left" Background="{Binding BadgeBackground}" BorderBrush="{Binding BadgeBorder}"
-                                                                BorderThickness="1" CornerRadius="999" Padding="6,1.5" Margin="0,0,8,0">
-                                                            <TextBlock Text="{Binding LevelText}" Foreground="{Binding Tone}" FontSize="10.5" FontWeight="Medium" />
+                                                        <Border DockPanel.Dock="Left" Background="{Binding BadgeBackground}" BorderThickness="0"
+                                                                CornerRadius="11" Padding="8,2.5" Margin="0,0,8,0">
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <Ellipse Width="5.5" Height="5.5" Fill="{Binding Tone}" VerticalAlignment="Center" Margin="0,0,5,0" />
+                                                                <TextBlock Text="{Binding LevelText}" Foreground="{Binding Tone}" FontSize="11" FontWeight="Medium" VerticalAlignment="Center" />
+                                                            </StackPanel>
                                                         </Border>
                                                         <TextBlock DockPanel.Dock="Left" Text="{Binding RuleId}" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
                                                         <TextBlock DockPanel.Dock="Left" Text="{Binding RuleVersion, StringFormat=v{0}}" Margin="6,0,0,0"
@@ -112,17 +115,23 @@
                         <!-- Header Line -->
                         <DockPanel LastChildFill="False">
                             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border Background="{Binding Selected.BadgeBackground}" BorderBrush="{Binding Selected.BadgeBorder}"
-                                        BorderThickness="1" CornerRadius="999" Padding="9,2.5" Margin="0,0,9,0">
-                                    <TextBlock Text="{Binding Selected.LevelText}" Foreground="{Binding Selected.Tone}" FontSize="11" FontWeight="Medium" />
+                                <Border Background="{Binding Selected.BadgeBackground}" BorderThickness="0"
+                                        CornerRadius="11" Padding="9,3" Margin="0,0,9,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="{Binding Selected.Tone}" VerticalAlignment="Center" Margin="0,0,5.5,0" />
+                                        <TextBlock Text="{Binding Selected.LevelText}" Foreground="{Binding Selected.Tone}" FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Border>
                                 <TextBlock Text="{Binding Selected.RuleId}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding Selected.RuleVersion, StringFormat=v{0}}"
                                            Style="{StaticResource Caption}" Margin="8,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
-                            <Border DockPanel.Dock="Right" Background="{StaticResource BadBg}" BorderBrush="{StaticResource BadBorder}"
-                                    BorderThickness="1" CornerRadius="999" Padding="8,2" VerticalAlignment="Center">
-                                <TextBlock Text="M1 不执行修复" FontSize="11" Foreground="{StaticResource Bad}" FontWeight="Medium" />
+                            <Border DockPanel.Dock="Right" Background="{StaticResource BadBg}" BorderThickness="0"
+                                    CornerRadius="11" Padding="9,3" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource Bad}" VerticalAlignment="Center" Margin="0,0,5.5,0" />
+                                    <TextBlock Text="M1 不执行修复" FontSize="11.5" Foreground="{StaticResource Bad}" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
                             </Border>
                         </DockPanel>
 

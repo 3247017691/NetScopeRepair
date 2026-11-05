@@ -19,14 +19,30 @@
                             Style="{StaticResource QuietButton}" VerticalAlignment="Center" />
                 </DockPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
-                    <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                            CornerRadius="999" Padding="10,4" Margin="0,0,8,0">
-                        <TextBlock Text="{Binding CountsText}" FontSize="12" Foreground="{StaticResource Ink}" />
+                    <Border Background="#EFEFF5" BorderThickness="0"
+                            CornerRadius="12" Padding="11,4" Margin="0,0,8,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CountsText}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="6" Height="6" Fill="#4F46E5" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding CountsText}" FontSize="12" FontWeight="Medium" Foreground="#3F4354" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Border>
-                    <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
-                            CornerRadius="999" Padding="10,4"
+                    <Border Background="{StaticResource WarnBg}" BorderThickness="0"
+                            CornerRadius="12" Padding="11,4"
                             Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="有新的采集，点击右侧按钮刷新" FontSize="12" Foreground="{StaticResource Warn}" FontWeight="Medium" />
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="6" Height="6" Fill="{StaticResource Warn}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="有新的采集，点击右侧按钮刷新" FontSize="12" Foreground="{StaticResource Warn}" FontWeight="Medium" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Border>
                 </StackPanel>
                 <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
@@ -46,12 +62,15 @@
                     <DataGridTextColumn Header="序号" Binding="{Binding Sequence}" Width="64" />
                     <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="144" />
                     <DataGridTextColumn Header="类型" Binding="{Binding Kind}" Width="96" />
-                    <DataGridTemplateColumn Header="状态" Width="96">
+                    <DataGridTemplateColumn Header="状态" Width="104">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Border Background="{Binding BadgeBackground}" BorderBrush="{Binding BadgeBorder}"
-                                        BorderThickness="1" CornerRadius="999" Padding="7,2" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding StatusText}" Foreground="{Binding Tone}" FontSize="11" FontWeight="Medium" />
+                                <Border Background="{Binding BadgeBackground}" BorderThickness="0"
+                                        CornerRadius="11" Padding="9,2.5" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="{Binding Tone}" VerticalAlignment="Center" Margin="0,0,5.5,0" />
+                                        <TextBlock Text="{Binding StatusText}" Foreground="{Binding Tone}" FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

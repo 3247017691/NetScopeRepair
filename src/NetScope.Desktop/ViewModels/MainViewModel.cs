@@ -114,8 +114,13 @@ public sealed class MainViewModel : ViewModelBase
     public Brush StateTone
     {
         get => _stateTone;
-        private set => Set(ref _stateTone, value);
+        private set
+        {
+            if (Set(ref _stateTone, value)) Raise(nameof(StateBg));
+        }
     }
+
+    public Brush StateBg => UiText.SoftBackground(StateTone);
 
     public string ErrorText
     {

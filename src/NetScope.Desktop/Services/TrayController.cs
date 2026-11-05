@@ -35,7 +35,7 @@ public sealed class TrayController : IDisposable
 
         _icon = new System.Windows.Forms.NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = LoadAppIcon(),
             Visible = true,
             ContextMenuStrip = menu,
             Text = "NetScope Repair",
@@ -88,6 +88,28 @@ public sealed class TrayController : IDisposable
         _icon.Text = text.Length > 63 ? text[..63] : text;
         _start.Enabled = session.State is ObservationState.Idle or ObservationState.Paused;
         _pause.Enabled = session.State == ObservationState.Observing;
+    }
+
+    private static Icon LoadAppIcon()
+    {
+        try
+        {
+            var uri = new Uri("pack://application:,,,/Resources/netscope.ico", UriKind.Absolute);
+            var streamInfo = System.Windows.Application.GetResourceStream(uri);
+            if (streamInfo?.Stream is { } stream)
+            {
+                using (stream)
+                {
+                    return new Icon(stream, new Size(32, 32));
+                }
+            }
+        }
+        catch
+        {
+            // Fall back cleanly in headless unit tests where Application resources are not loaded.
+        }
+
+        return SystemIcons.Application;
     }
 
     public void Dispose()

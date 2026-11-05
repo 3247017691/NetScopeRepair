@@ -55,7 +55,13 @@ public sealed record ClientRow(
     string ProvenanceText,
     string GapsText,
     string NotesText,
-    IReadOnlyList<ClientEvidenceRow> Evidence);
+    IReadOnlyList<ClientEvidenceRow> Evidence)
+{
+    public Brush RunningTone => RunningText == "运行中" ? UiText.OkBrush : UiText.GapBrush;
+    public Brush RunningBg => RunningText == "运行中" ? UiText.OkBgBrush : UiText.GapBgBrush;
+    public Brush TunTone => TunText.StartsWith("已检测到", StringComparison.Ordinal) ? UiText.AccentBrush : UiText.GapBrush;
+    public Brush TunBg => TunText.StartsWith("已检测到", StringComparison.Ordinal) ? UiText.AccentBgBrush : UiText.GapBgBrush;
+}
 
 public sealed record DependencyLayerRow(string Name, string State, string Detail);
 
@@ -70,26 +76,26 @@ public sealed record DependencyRow(
 /// <summary>Display-only mapping. It never upgrades an observation into a stronger claim.</summary>
 public static class UiText
 {
-    public static readonly Brush OkBrush = Frozen(0x05, 0x96, 0x69);
-    public static readonly Brush WarnBrush = Frozen(0xD9, 0x77, 0x06);
+    public static readonly Brush OkBrush = Frozen(0x0B, 0x8A, 0x56);
+    public static readonly Brush WarnBrush = Frozen(0xB4, 0x53, 0x09);
     public static readonly Brush BadBrush = Frozen(0xDC, 0x26, 0x26);
-    public static readonly Brush GapBrush = Frozen(0x47, 0x55, 0x69);
-    public static readonly Brush AccentBrush = Frozen(0x25, 0x63, 0xEB);
+    public static readonly Brush GapBrush = Frozen(0x4B, 0x55, 0x63);
+    public static readonly Brush AccentBrush = Frozen(0x4F, 0x46, 0xE5);
 
-    public static readonly Brush OkBgBrush = Frozen(0xEC, 0xFD, 0xF5);
+    public static readonly Brush OkBgBrush = Frozen(0xE6, 0xF5, 0xEE);
     public static readonly Brush OkBorderBrush = Frozen(0xA7, 0xF3, 0xD0);
 
-    public static readonly Brush WarnBgBrush = Frozen(0xFF, 0xFB, 0xEB);
+    public static readonly Brush WarnBgBrush = Frozen(0xFB, 0xF0, 0xDF);
     public static readonly Brush WarnBorderBrush = Frozen(0xFD, 0xE6, 0x8A);
 
-    public static readonly Brush BadBgBrush = Frozen(0xFE, 0xF2, 0xF2);
+    public static readonly Brush BadBgBrush = Frozen(0xFD, 0xEC, 0xEC);
     public static readonly Brush BadBorderBrush = Frozen(0xFE, 0xCA, 0xCA);
 
-    public static readonly Brush GapBgBrush = Frozen(0xF1, 0xF5, 0xF9);
+    public static readonly Brush GapBgBrush = Frozen(0xEF, 0xEF, 0xF5);
     public static readonly Brush GapBorderBrush = Frozen(0xCB, 0xD5, 0xE1);
 
-    public static readonly Brush AccentBgBrush = Frozen(0xEF, 0xF6, 0xFF);
-    public static readonly Brush AccentBorderBrush = Frozen(0xBF, 0xDB, 0xFE);
+    public static readonly Brush AccentBgBrush = Frozen(0xEE, 0xF0, 0xFF);
+    public static readonly Brush AccentBorderBrush = Frozen(0xC7, 0xD2, 0xFE);
 
     public static Brush SoftBackground(Brush? tone)
     {

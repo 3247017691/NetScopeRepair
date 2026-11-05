@@ -18,21 +18,21 @@
     <Color x:Key="AccentLightColor">#EFF6FF</Color>
     <Color x:Key="AccentBorderColor">#BFDBFE</Color>
 
-    <!-- Semantic Status Colors -->
-    <Color x:Key="OkColor">#059669</Color>
-    <Color x:Key="OkBgColor">#ECFDF5</Color>
+    <!-- Semantic Status Colors (Magpie Tinted Fill Palette) -->
+    <Color x:Key="OkColor">#0B8A56</Color>
+    <Color x:Key="OkBgColor">#E6F5EE</Color>
     <Color x:Key="OkBorderColor">#A7F3D0</Color>
 
-    <Color x:Key="WarnColor">#D97706</Color>
-    <Color x:Key="WarnBgColor">#FFFBEB</Color>
+    <Color x:Key="WarnColor">#B45309</Color>
+    <Color x:Key="WarnBgColor">#FBF0DF</Color>
     <Color x:Key="WarnBorderColor">#FDE68A</Color>
 
     <Color x:Key="BadColor">#DC2626</Color>
-    <Color x:Key="BadBgColor">#FEF2F2</Color>
+    <Color x:Key="BadBgColor">#FDECEC</Color>
     <Color x:Key="BadBorderColor">#FECACA</Color>
 
-    <Color x:Key="GapColor">#475569</Color>
-    <Color x:Key="GapBgColor">#F1F5F9</Color>
+    <Color x:Key="GapColor">#4B5563</Color>
+    <Color x:Key="GapBgColor">#EFEFF5</Color>
     <Color x:Key="GapBorderColor">#CBD5E1</Color>
 
     <!-- Terminal Palette -->
@@ -145,8 +145,9 @@
     </Style>
 
     <Style x:Key="Pill" TargetType="Border">
-        <Setter Property="CornerRadius" Value="999" />
-        <Setter Property="Padding" Value="9,3" />
+        <Setter Property="CornerRadius" Value="11" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="10,4" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 

@@ -22,18 +22,24 @@
                             <ColumnDefinition Width="34" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <!-- Brand Icon: Rounded Square with White Vector Shield/Pulse -->
-                        <Border Grid.Column="0" Width="32" Height="32" CornerRadius="7" Background="#0F172A" HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <Path Data="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                                  Stroke="White" StrokeThickness="1.5" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                  Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <!-- Brand Icon: White Squircle with Black Scope Lens & Pulse Glyph -->
+                        <Border Grid.Column="0" Width="34" Height="34" CornerRadius="8" Background="#FFFFFF"
+                                BorderBrush="#CBD5E1" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <Grid Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Ellipse Width="16" Height="16" Stroke="#0F172A" StrokeThickness="1.8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Path Data="M11,1 L11,3.5 M11,18.5 L11,21 M1,11 L3.5,11 M18.5,11 L21,11 M5.2,11 L8.2,11 L9.8,7.2 L12.2,14.8 L13.8,11 L16.8,11"
+                                      Stroke="#0F172A" StrokeThickness="1.75" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                            </Grid>
                         </Border>
                         <!-- Brand Title & Badge -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
                             <TextBlock Text="NetScope Repair" FontSize="14.5" FontWeight="Bold" Foreground="{StaticResource Ink}" />
                             <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                <Border Background="{StaticResource AccentLight}" BorderBrush="{StaticResource AccentBorder}" BorderThickness="1" CornerRadius="4" Padding="5,1">
-                                    <TextBlock Text="M1 只读版" FontSize="10.5" FontWeight="Medium" Foreground="{StaticResource Accent}" />
+                                <Border Background="#EEF0FF" BorderThickness="0" CornerRadius="9" Padding="7,1.5">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="5" Height="5" Fill="#4F46E5" VerticalAlignment="Center" Margin="0,0,5,0" />
+                                        <TextBlock Text="M1 只读版" FontSize="10.5" FontWeight="Medium" Foreground="#4338CA" />
+                                    </StackPanel>
                                 </Border>
                             </StackPanel>
                         </StackPanel>
@@ -127,13 +133,13 @@
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
                                 VerticalAlignment="Center">
-                        <!-- Modern Status Pill -->
-                        <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                                CornerRadius="999" Padding="10,5" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <!-- Modern Magpie-style Status Capsule (CornerRadius=13 for 26px height, no border) -->
+                        <Border Background="{Binding StateBg}" BorderThickness="0"
+                                CornerRadius="13" Padding="11,4.5" Margin="0,0,12,0" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse Width="7" Height="7" Fill="{Binding StateTone}" VerticalAlignment="Center"
-                                         Margin="0,0,7,0" />
-                                <TextBlock Text="{Binding StateText}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
+                                <Ellipse Width="6.5" Height="6.5" Fill="{Binding StateTone}" VerticalAlignment="Center"
+                                         Margin="0,0,6.5,0" />
+                                <TextBlock Text="{Binding StateText}" FontSize="12" FontWeight="Medium" Foreground="{Binding StateTone}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                         <Button Content="开始观察" Command="{Binding Home.StartCommand}"

@@ -9,11 +9,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NetScope.Desktop</RootNamespace>
     <AssemblyName>NetScope.Desktop</AssemblyName>
-    <ApplicationIcon />
+    <ApplicationIcon>Resources\netscope.ico</ApplicationIcon>
     <Title>NetScope Repair</Title>
     <Product>NetScope Repair</Product>
     <Description>Read-only proxy network diagnostics for Windows</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\netscope.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <Using Remove="System.Drawing" />
