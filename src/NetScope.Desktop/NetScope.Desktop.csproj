@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <Resource Include="Resources\netscope.ico" />
+    <Resource Include="Resources\netscope-logo.png" />
   </ItemGroup>
 
   <ItemGroup>

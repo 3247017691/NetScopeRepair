@@ -17,6 +17,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _explicitProxy = "";
     private int _familyIndex;
     private bool? _hideOnClose;
+    private bool _loading;
 
     public SettingsViewModel(SettingsStore store, AppSettings initial, Action<AppSettings> applied)
     {
@@ -70,6 +71,36 @@ public sealed class SettingsViewModel : ViewModelBase
         ? "跟随系统默认栈；不强制地址族。"
         : "M1 的真实传输不强制地址族：选择后会诚实返回“不支持”，不会伪造 IPv4/IPv6 结果。";
 
+    /// <summary>
+    /// 0 = 每次关闭窗口时询问 (null), 1 = 隐藏到托盘继续观察 (true), 2 = 直接退出并停止采集 (false)
+    /// </summary>
+    public int CloseBehaviorIndex
+    {
+        get => _hideOnClose switch
+        {
+            true => 1,
+            false => 2,
+            _ => 0,
+        };
+        set
+        {
+            bool? next = value switch
+            {
+                1 => true,
+                2 => false,
+                _ => null,
+            };
+            if (_hideOnClose == next) return;
+            _hideOnClose = next;
+            Raise();
+            Raise(nameof(HideOnCloseText));
+            if (!_loading)
+            {
+                SaveCloseBehaviorImmediate();
+            }
+        }
+    }
+
     public string HideOnCloseText => _hideOnClose switch
     {
         true => "关闭窗口时隐藏到托盘",
@@ -79,19 +110,44 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public void Load(AppSettings settings)
     {
-        IntervalSeconds = ((int)settings.ObservationInterval.TotalSeconds).ToString();
-        TargetEndpoint = settings.ProbeTargetEndpoint;
-        ExpectedStatus = settings.ExpectedStatus.ToString();
-        ExplicitProxy = settings.ExplicitProxyEndpoint ?? "";
-        FamilyIndex = settings.AddressFamily switch
+        _loading = true;
+        try
         {
-            "ipv4" => 1,
-            "ipv6" => 2,
-            _ => 0,
-        };
-        _hideOnClose = settings.HideOnClose;
-        Raise(nameof(HideOnCloseText));
-        StatusMessage = null;
+            IntervalSeconds = ((int)settings.ObservationInterval.TotalSeconds).ToString();
+            TargetEndpoint = settings.ProbeTargetEndpoint;
+            ExpectedStatus = settings.ExpectedStatus.ToString();
+            ExplicitProxy = settings.ExplicitProxyEndpoint ?? "";
+            FamilyIndex = settings.AddressFamily switch
+            {
+                "ipv4" => 1,
+                "ipv6" => 2,
+                _ => 0,
+            };
+            _hideOnClose = settings.HideOnClose;
+            Raise(nameof(CloseBehaviorIndex));
+            Raise(nameof(HideOnCloseText));
+            StatusMessage = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void SaveCloseBehaviorImmediate()
+    {
+        try
+        {
+            var current = _store.Load();
+            var updated = current with { HideOnClose = _hideOnClose };
+            _store.Save(updated);
+            _applied(updated);
+            StatusMessage = "已更新关闭窗口行为：" + HideOnCloseText + "。";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            StatusMessage = "关闭窗口行为保存失败：" + exception.GetType().Name + "。";
+        }
     }
 
     public bool TryBuild(out AppSettings settings, out string? error)

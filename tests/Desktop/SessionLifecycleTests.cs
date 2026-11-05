@@ -470,4 +470,26 @@ public sealed class SessionLifecycleTests
         Assert.Equal(0, runner.Calls);
         Assert.False(viewModel.Home.CanDiagnose);
     }
+
+    [Fact]
+    public void Settings_view_model_allows_changing_and_resetting_close_behavior()
+    {
+        using var temp = new TempAppPaths();
+        var store = new SettingsStore(temp.Paths);
+        AppSettings? applied = null;
+        var vm = new SettingsViewModel(store, new AppSettings { HideOnClose = true }, s => applied = s);
+
+        Assert.Equal(1, vm.CloseBehaviorIndex);
+        Assert.Equal("关闭窗口时隐藏到托盘", vm.HideOnCloseText);
+
+        vm.CloseBehaviorIndex = 2;
+        Assert.Equal(false, store.Load().HideOnClose);
+        Assert.Equal(false, applied?.HideOnClose);
+        Assert.Equal("关闭窗口时退出程序", vm.HideOnCloseText);
+
+        vm.CloseBehaviorIndex = 0;
+        Assert.Null(store.Load().HideOnClose);
+        Assert.Null(applied?.HideOnClose);
+        Assert.Equal("关闭窗口时询问", vm.HideOnCloseText);
+    }
 }

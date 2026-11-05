@@ -19,18 +19,14 @@
                 <StackPanel DockPanel.Dock="Top" Margin="18,22,18,16">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="34" />
+                            <ColumnDefinition Width="38" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <!-- Brand Icon: White Squircle with Black Scope Lens & Pulse Glyph -->
-                        <Border Grid.Column="0" Width="34" Height="34" CornerRadius="8" Background="#FFFFFF"
-                                BorderBrush="#CBD5E1" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <Grid Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Ellipse Width="16" Height="16" Stroke="#0F172A" StrokeThickness="1.8" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <Path Data="M11,1 L11,3.5 M11,18.5 L11,21 M1,11 L3.5,11 M18.5,11 L21,11 M5.2,11 L8.2,11 L9.8,7.2 L12.2,14.8 L13.8,11 L16.8,11"
-                                      Stroke="#0F172A" StrokeThickness="1.75" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-                            </Grid>
-                        </Border>
+                        <!-- Brand Icon: Ceramic White Squircle with Manta Radar Mark -->
+                        <Image Grid.Column="0" Width="38" Height="38"
+                               Source="pack://application:,,,/Resources/netscope-logo.png"
+                               HorizontalAlignment="Left" VerticalAlignment="Center"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
                         <!-- Brand Title & Badge -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
                             <TextBlock Text="NetScope Repair" FontSize="14.5" FontWeight="Bold" Foreground="{StaticResource Ink}" />

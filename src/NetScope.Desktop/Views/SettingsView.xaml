@@ -103,13 +103,26 @@
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
                 <TextBlock Text="托盘与退出" Style="{StaticResource H2}" />
-                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
-                        CornerRadius="6" Padding="12,10" Margin="0,8,0,0">
-                    <StackPanel>
-                        <TextBlock Text="{Binding HideOnCloseText, StringFormat=当前行为：{0}}" FontSize="12.5" FontWeight="Medium" Foreground="{StaticResource Ink}" />
-                        <TextBlock Text="首次关闭窗口时会询问“隐藏到托盘继续观察”或“退出并停止采集”，可以记住选择。"
-                                   Style="{StaticResource Caption}" Margin="0,4,0,0" />
-                    </StackPanel>
+                <TextBlock Text="控制点击右上角关闭按钮时的默认动作；托盘右键菜单始终可显式退出并停止观察。"
+                           Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,14" />
+
+                <Border BorderBrush="{StaticResource LineSubtle}" BorderThickness="0" Padding="0,6">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="320" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,24,0">
+                            <TextBlock Text="关闭窗口时的行为" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
+                            <TextBlock Text="首次关闭默认弹窗询问；如果勾选过“记住我的选择”，可随时在此切换或恢复每次询问。"
+                                       Style="{StaticResource Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" SelectedIndex="{Binding CloseBehaviorIndex}" VerticalAlignment="Center">
+                            <ComboBoxItem Content="每次关闭窗口时询问（默认）" />
+                            <ComboBoxItem Content="隐藏到托盘继续观察" />
+                            <ComboBoxItem Content="直接退出并停止采集" />
+                        </ComboBox>
+                    </Grid>
                 </Border>
             </StackPanel>
         </Border>
