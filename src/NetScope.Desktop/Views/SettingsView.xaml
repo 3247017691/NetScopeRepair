@@ -9,8 +9,13 @@
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
                 <TextBlock Text="观察与探测设置" Style="{StaticResource H2}" />
-                <TextBlock Text="这里只保存本应用自己的偏好，不会应用到系统网络配置，也不会自动开始外部探测。"
-                           Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,14" />
+                <TextBlock Text="这里只保存本应用自己的偏好与目标档案，不会应用到系统网络配置，也不会自动开始外部探测。"
+                           Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,8" />
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                        CornerRadius="6" Padding="12,8" Margin="0,0,0,14">
+                    <TextBlock Text="{Binding TargetProfileCaption}" FontSize="12" Foreground="{StaticResource Muted}"
+                               TextWrapping="Wrap" LineHeight="18" />
+                </Border>
 
                 <!-- Setting Row 1: 快照间隔 -->
                 <Border BorderBrush="{StaticResource LineSubtle}" BorderThickness="0,0,0,1" Padding="0,14">
@@ -27,7 +32,23 @@
                     </Grid>
                 </Border>
 
-                <!-- Setting Row 2: 探测目标 URL -->
+                <!-- Setting Row 2: 目标档案 ID -->
+                <Border BorderBrush="{StaticResource LineSubtle}" BorderThickness="0,0,0,1" Padding="0,14">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="320" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,24,0">
+                            <TextBlock Text="目标档案 ID" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
+                            <TextBlock Text="用于在结论与探测里区分同一目标；只在本机使用，不代表真实业务身份。"
+                                       Style="{StaticResource Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBox Grid.Column="1" Text="{Binding TargetId, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <!-- Setting Row 3: 探测目标 URL -->
                 <Border BorderBrush="{StaticResource LineSubtle}" BorderThickness="0,0,0,1" Padding="0,14">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -36,9 +57,27 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,24,0">
                             <TextBlock Text="探测目标 URL" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
-                            <TextBlock Text="留空则禁用探测。M1 只在你点击“立即诊断”后请求该地址。" Style="{StaticResource Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
+                            <TextBlock Text="留空则禁用外部验证。保存或打开设置不会请求该地址；只有首页“立即诊断”才会发起。"
+                                       Style="{StaticResource Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                         <TextBox Grid.Column="1" Text="{Binding TargetEndpoint, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <!-- Setting Row 4: 请求方法（固定） -->
+                <Border BorderBrush="{StaticResource LineSubtle}" BorderThickness="0,0,0,1" Padding="0,14">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="320" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,24,0">
+                            <TextBlock Text="请求方法" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
+                            <TextBlock Text="三条路径必须使用同一方法；本轮不提供会改变目标状态的方法。"
+                                       Style="{StaticResource Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding MethodText}" Style="{StaticResource Mono}" FontSize="12"
+                                   Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
                     </Grid>
                 </Border>
 

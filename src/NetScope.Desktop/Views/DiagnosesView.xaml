@@ -48,10 +48,11 @@
             </Grid.ColumnDefinitions>
 
             <!-- Left: Diagnosis List (Master) -->
-            <Border Grid.Column="0" Style="{StaticResource SectionCard}" Padding="10">
+            <Border Grid.Column="0" Style="{StaticResource SectionCard}" Padding="10" VerticalAlignment="Top">
                 <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}"
                          Background="Transparent" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VerticalAlignment="Top"
                          MaxHeight="480">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
@@ -178,7 +179,167 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 被测证据 Card -->
+                <!-- 三路径对比 -->
+                <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding ProbeComparisonTitle}" Style="{StaticResource H2}"
+                                       VerticalAlignment="Center" />
+                            <Border DockPanel.Dock="Right" Background="{StaticResource GapBg}" BorderThickness="0"
+                                    CornerRadius="11" Padding="9,3" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="{Binding ComparisonTone}" VerticalAlignment="Center"
+                                             Margin="0,0,5.5,0" />
+                                    <TextBlock Text="{Binding ComparisonVerdictText}" Foreground="{Binding ComparisonTone}"
+                                               FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </DockPanel>
+
+                        <TextBlock Text="{Binding ComparisonDetailText}" FontSize="12" Foreground="{StaticResource Ink}"
+                                   TextWrapping="Wrap" LineHeight="19" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding GroupNoteText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   Margin="0,6,0,0" />
+
+                        <TextBlock Text="{Binding ProbeEmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   Margin="0,8,0,0"
+                                   Visibility="{Binding HasNoProbeComparison, Converter={StaticResource BoolToVis}}" />
+
+                        <ItemsControl ItemsSource="{Binding PathRows}" Margin="0,10,0,0"
+                                      Visibility="{Binding HasProbeComparison, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}"
+                                            BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <DockPanel LastChildFill="False">
+                                                <Border DockPanel.Dock="Left" Background="{Binding BadgeBackground}"
+                                                        BorderThickness="0" CornerRadius="11" Padding="8,2.5" Margin="0,0,8,0">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Ellipse Width="5.5" Height="5.5" Fill="{Binding Tone}" VerticalAlignment="Center"
+                                                                 Margin="0,0,5,0" />
+                                                        <TextBlock Text="{Binding StatusText}" Foreground="{Binding Tone}" FontSize="11"
+                                                                   FontWeight="Medium" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding PathText}" FontWeight="SemiBold"
+                                                           FontSize="12.5" Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding ClassificationText}"
+                                                           Style="{StaticResource Caption}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                            </DockPanel>
+                                            <Grid Margin="0,7,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding StageText, StringFormat=阶段：{0}}"
+                                                           FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap"
+                                                           Margin="0,0,8,0" />
+                                                <TextBlock Grid.Column="1" Text="{Binding FailureText, StringFormat=结果：{0}}"
+                                                           FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding FamilyText}" FontSize="11.5" Foreground="{StaticResource Muted}"
+                                                       TextWrapping="Wrap" Margin="0,3,0,0" />
+                                            <TextBlock Text="{Binding ConnectionText}" FontSize="11.5" Foreground="{StaticResource Muted}"
+                                                       TextWrapping="Wrap" Margin="0,3,0,0" />
+                                            <TextBlock Text="{Binding ResolutionText}" FontSize="11.5" Foreground="{StaticResource Muted}"
+                                                       TextWrapping="Wrap" Margin="0,3,0,0" />
+                                            <TextBlock Text="{Binding TimingText}" FontSize="11.5" Foreground="{StaticResource Muted}"
+                                                       TextWrapping="Wrap" Margin="0,3,0,0" />
+                                            <TextBlock Text="{Binding NoticeText}" Style="{StaticResource MonoSubtle}" FontSize="10.5"
+                                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- 地址族能力 -->
+                        <StackPanel Visibility="{Binding HasProbeComparison, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding FamilyCapabilityTitle}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Ink}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding FamilyCapabilityCaption}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,3,0,6" />
+                            <ItemsControl ItemsSource="{Binding FamilyRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding BadgeBackground}" BorderThickness="0" CornerRadius="6"
+                                                Padding="10,7" Margin="0,0,0,5">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="190" />
+                                                    <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding PathText}" FontSize="11.5"
+                                                           Foreground="{StaticResource Ink}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{Binding RequestedText}" FontSize="11"
+                                                           Foreground="{Binding Tone}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="{Binding CapabilityText}" FontSize="11.5"
+                                                           Foreground="{StaticResource Ink}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                                CornerRadius="6" Padding="12,8" Margin="0,8,0,0">
+                            <TextBlock Text="{Binding ProbeBoundaryText}" FontSize="11.5" Foreground="{StaticResource Warn}"
+                                       TextWrapping="Wrap" LineHeight="18" />
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- 部分 / 未支持原因（可展开） -->
+                <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding ReasonHeaderText}" Style="{StaticResource H2}"
+                                       VerticalAlignment="Center" />
+                            <Button DockPanel.Dock="Right" Content="{Binding ReasonsToggleText}"
+                                    Command="{Binding ToggleReasonsCommand}" Style="{StaticResource QuietButton}"
+                                    Visibility="{Binding HasReasons, Converter={StaticResource BoolToVis}}"
+                                    VerticalAlignment="Center" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding ReasonsCaption}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" Margin="0,4,0,8" />
+                        <TextBlock Text="{Binding ReasonsEmptyText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left"
+                                   Visibility="{Binding ShowReasonsEmpty, Converter={StaticResource BoolToVis}}" />
+                        <ItemsControl ItemsSource="{Binding Reasons}"
+                                      Visibility="{Binding ReasonsVisible, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}"
+                                            BorderThickness="1" CornerRadius="6" Padding="11,8" Margin="0,0,0,6">
+                                        <StackPanel>
+                                            <DockPanel LastChildFill="False">
+                                                <Border DockPanel.Dock="Left" Background="{Binding BadgeBackground}"
+                                                        BorderThickness="0" CornerRadius="11" Padding="8,2"
+                                                        Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding StatusText}" Foreground="{Binding Tone}"
+                                                               FontSize="10.5" FontWeight="Medium" />
+                                                </Border>
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding SourceText}"
+                                                           FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}"
+                                                           VerticalAlignment="Center" />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}"
+                                                           Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Summary}" FontSize="11.5" Foreground="{StaticResource Ink}"
+                                                       TextWrapping="Wrap" Margin="0,5,0,0" />
+                                            <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource Muted}"
+                                                       TextWrapping="Wrap" Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 <Border Style="{StaticResource SectionCard}">
                     <StackPanel>
                         <TextBlock Text="被测证据" Style="{StaticResource H2}" />

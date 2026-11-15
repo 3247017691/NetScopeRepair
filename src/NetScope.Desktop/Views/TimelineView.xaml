@@ -80,6 +80,92 @@
             </DataGrid>
         </Border>
 
+        <!-- 相邻观察变化 -->
+        <Border Style="{StaticResource SectionCard}">
+            <StackPanel>
+                <DockPanel LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Text="相邻观察变化" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                    <TextBlock DockPanel.Dock="Right" Text="按接口 GUID / LUID / 地址族匹配" Style="{StaticResource Caption}"
+                               VerticalAlignment="Center" />
+                </DockPanel>
+                <TextBlock Text="{Binding ChangeBoundaryText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                           HorizontalAlignment="Left" Margin="0,4,0,8" />
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                        CornerRadius="6" Padding="11,8" Margin="0,0,0,10">
+                    <TextBlock Text="{Binding ChangeSummaryText}" FontSize="12" Foreground="{StaticResource Ink}"
+                               TextWrapping="Wrap" LineHeight="18" />
+                </Border>
+
+                <TextBlock Text="没有可展开的相邻差异；上面的计数与原因仍然有效。" Style="{StaticResource Caption}"
+                           HorizontalAlignment="Left" Margin="0,0,0,4"
+                           Visibility="{Binding HasNoObservationPairs, Converter={StaticResource BoolToVis}}" />
+
+                <ItemsControl ItemsSource="{Binding ObservationPairs}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                    CornerRadius="8" Padding="12,10" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False">
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding HeaderText}" FontSize="12"
+                                                   FontWeight="SemiBold" Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}"
+                                                   VerticalAlignment="Center" Margin="8,0,0,0" />
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding IntervalText}" Style="{StaticResource Caption}"
+                                                   VerticalAlignment="Center" />
+                                    </DockPanel>
+
+                                    <ItemsControl ItemsSource="{Binding Changes}" Margin="0,8,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource LineSubtle}"
+                                                        BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
+                                                    <StackPanel>
+                                                        <DockPanel LastChildFill="False">
+                                                            <Border DockPanel.Dock="Left" Background="{Binding BadgeBackground}"
+                                                                    BorderThickness="0" CornerRadius="11" Padding="8,2"
+                                                                    Margin="0,0,8,0">
+                                                                <TextBlock Text="{Binding KindText}" Foreground="{Binding Tone}"
+                                                                           FontSize="10.5" FontWeight="Medium" />
+                                                            </Border>
+                                                            <TextBlock DockPanel.Dock="Left" Text="{Binding FieldText}"
+                                                                       FontSize="11.5" FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
+                                                            <TextBlock DockPanel.Dock="Right" Text="{Binding IdentityText}"
+                                                                       Style="{StaticResource MonoSubtle}" FontSize="10.5"
+                                                                       VerticalAlignment="Center" MaxWidth="460"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </DockPanel>
+                                                        <Grid Margin="0,5,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding BeforeText, StringFormat=之前：{0}}"
+                                                                       FontSize="11.5" Foreground="{StaticResource Muted}"
+                                                                       TextWrapping="Wrap" Margin="0,0,10,0" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding AfterText, StringFormat=之后：{0}}"
+                                                                       FontSize="11.5" Foreground="{StaticResource Ink}"
+                                                                       TextWrapping="Wrap" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding Note}" FontSize="10.5" Foreground="{StaticResource Muted}"
+                                                                   TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="{Binding NotesText}" FontSize="10.5" Foreground="{StaticResource Warn}"
+                                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
         <!-- Problems & Gaps 2-Column Section -->
         <Grid>
             <Grid.ColumnDefinitions>

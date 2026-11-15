@@ -19,6 +19,9 @@ docs/reports/evidence/
 .idea/
 *.userprefs
 
+# SDD scratch workspace (ledger/briefs/review packages)
+.superpowers/
+
 # Local runtime data that must never be committed
 *.ndjson
 !fixtures/**/*.ndjson

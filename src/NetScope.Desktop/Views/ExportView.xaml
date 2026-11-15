@@ -117,6 +117,34 @@
             </Border>
         </Grid>
 
+        <!-- Package shape & provenance card: same sections as manifest.json -->
+        <Border Style="{StaticResource SectionCard}" Visibility="{Binding Shape.Count, Converter={StaticResource CountToVis}}">
+            <StackPanel>
+                <TextBlock Text="包形状与溯源（与 manifest 同源）" Style="{StaticResource H2}" />
+                <TextBlock Text="缺口、域完整性、探测覆盖、版本、变化摘要与诊断来源分开显示；这里不含原始值。"
+                           Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,12" />
+                <ItemsControl ItemsSource="{Binding Shape}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                                    CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="12" FontWeight="Medium"
+                                               Foreground="{StaticResource Ink}" VerticalAlignment="Top" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Value}" Style="{StaticResource Caption}"
+                                               FontSize="11" TextWrapping="Wrap" VerticalAlignment="Top" Margin="8,0,0,0" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
         <!-- Warnings Card (if any) -->
         <Border Style="{StaticResource SectionCard}" Visibility="{Binding Warnings.Count, Converter={StaticResource CountToVis}}"
                 Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}">

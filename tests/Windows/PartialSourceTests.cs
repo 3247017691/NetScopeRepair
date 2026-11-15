@@ -155,7 +155,8 @@ public sealed class PartialSourceTests
         var result = await new WindowsInterfaceSource(new FakeAdapters(adapter), native).ReadAsync(CancellationToken.None);
 
         Assert.Equal(EventStatus.Partial, result.Status);
-        var item = Assert.Single(result.Value!);
+        Assert.Equal(2, result.Value!.Count);
+        var item = Assert.Single(result.Value, row => row.Family == "ipv4");
         Assert.Equal(12, item.IfIndex);
         Assert.Equal("ipv4", item.Family);
         Assert.Null(item.Metric);
@@ -163,10 +164,19 @@ public sealed class PartialSourceTests
         Assert.Null(item.DisableDefaultRoutes);
         Assert.Null(item.Luid);
         Assert.Contains("IPv4 metric denied", item.Reason);
+
+        // The successful IPv6 read is exposed on its own row, never borrowed by the failed IPv4 row.
+        var ipv6 = Assert.Single(result.Value, row => row.Family == "ipv6");
+        Assert.Equal(13, ipv6.IfIndex);
+        Assert.Equal(40, ipv6.Metric);
+        Assert.True(ipv6.AutomaticMetric);
+        Assert.True(ipv6.DisableDefaultRoutes);
+        Assert.Null(ipv6.Reason);
+
         Assert.Contains(result.Errors, error => error.Contains("IPv4 metric denied", StringComparison.Ordinal));
-        var read = Assert.Single(native.MetricCalls);
-        Assert.Equal((12, NativeNetworkApi.AfInet), read.Key);
-        Assert.Equal(1, read.Value);
+        Assert.Equal(1, native.MetricCalls[(12, NativeNetworkApi.AfInet)]);
+        Assert.Equal(1, native.MetricCalls[(13, NativeNetworkApi.AfInet6)]);
+        Assert.Equal(2, native.MetricCalls.Count);
     }
 
     [Theory]
@@ -314,6 +324,128 @@ public sealed class PartialSourceTests
         Assert.False(result.HasValue);
         Assert.Null(result.Value);
         Assert.NotEmpty(result.Errors);
+    }
+
+    [Fact]
+    public async Task Dual_stack_interface_keeps_one_row_per_family_with_its_own_metrics_and_addresses()
+    {
+        var adapter = new FakeAdapter("dual-stack", 12)
+        {
+            InterfaceRead = () => new AdapterInterfaceConfiguration
+            {
+                Ipv4Index = 12,
+                Ipv6Index = 13,
+                Addresses = ["192.0.2.2/24", "2001:db8::2/64"],
+            },
+        };
+        var native = new FakeNative
+        {
+            Metrics = (_, family) => family == NativeNetworkApi.AfInet
+                ? Collected<NativeNetworkApi.InterfaceMetrics>.Ok(new(111, 25, true, false))
+                : Collected<NativeNetworkApi.InterfaceMetrics>.Ok(new(222, 900, true, true)),
+        };
+
+        var result = await new WindowsInterfaceSource(new FakeAdapters(adapter), native)
+            .ReadAsync(CancellationToken.None);
+
+        Assert.Equal(EventStatus.Ok, result.Status);
+        Assert.Equal(2, result.Value!.Count);
+
+        var ipv4 = Assert.Single(result.Value, item => item.Family == "ipv4");
+        Assert.Equal(12, ipv4.IfIndex);
+        Assert.Equal(25, ipv4.Metric);
+        Assert.True(ipv4.AutomaticMetric);
+        Assert.False(ipv4.DisableDefaultRoutes);
+        Assert.Equal(new[] { "192.0.2.2/24" }, ipv4.Addresses);
+        Assert.Null(ipv4.Reason);
+
+        var ipv6 = Assert.Single(result.Value, item => item.Family == "ipv6");
+        Assert.Equal(13, ipv6.IfIndex);
+        Assert.Equal(900, ipv6.Metric);
+        Assert.True(ipv6.AutomaticMetric);
+        Assert.True(ipv6.DisableDefaultRoutes);
+        Assert.Equal(new[] { "2001:db8::2/64" }, ipv6.Addresses);
+        Assert.Null(ipv6.Reason);
+
+        Assert.Equal(1, native.MetricCalls[(12, NativeNetworkApi.AfInet)]);
+        Assert.Equal(1, native.MetricCalls[(13, NativeNetworkApi.AfInet6)]);
+    }
+
+    [Fact]
+    public async Task Dual_stack_IPv6_metric_failure_is_a_separate_gap_and_IPv4_success_is_not_reused()
+    {
+        var adapter = new FakeAdapter("dual-stack-ipv6-gap", 12)
+        {
+            InterfaceRead = () => new AdapterInterfaceConfiguration
+            {
+                Ipv4Index = 12,
+                Ipv6Index = 13,
+                Addresses = ["192.0.2.2/24", "2001:db8::2/64"],
+            },
+        };
+        var native = new FakeNative
+        {
+            Metrics = (_, family) => family == NativeNetworkApi.AfInet
+                ? Collected<NativeNetworkApi.InterfaceMetrics>.Ok(new(111, 25, true, false))
+                : Collected<NativeNetworkApi.InterfaceMetrics>.Unavailable(
+                    EventStatus.AccessDenied, "injected IPv6 metric denial"),
+        };
+
+        var result = await new WindowsInterfaceSource(new FakeAdapters(adapter), native)
+            .ReadAsync(CancellationToken.None);
+
+        Assert.Equal(EventStatus.Partial, result.Status);
+        Assert.Equal(2, result.Value!.Count);
+        var ipv4 = Assert.Single(result.Value, item => item.Family == "ipv4");
+        Assert.Equal(25, ipv4.Metric);
+        Assert.Null(ipv4.Reason);
+        var ipv6 = Assert.Single(result.Value, item => item.Family == "ipv6");
+        Assert.Equal(13, ipv6.IfIndex);
+        Assert.Null(ipv6.Metric);
+        Assert.Null(ipv6.AutomaticMetric);
+        Assert.Null(ipv6.DisableDefaultRoutes);
+        Assert.Contains("injected IPv6 metric denial", ipv6.Reason);
+        Assert.Contains(result.Errors, error => error.Contains("IPv6", StringComparison.Ordinal)
+            && error.Contains("injected IPv6 metric denial", StringComparison.Ordinal));
+        Assert.Equal(1, native.MetricCalls[(12, NativeNetworkApi.AfInet)]);
+        Assert.Equal(1, native.MetricCalls[(13, NativeNetworkApi.AfInet6)]);
+    }
+
+    [Fact]
+    public async Task Dual_stack_IPv6_index_gap_keeps_an_IPv6_row_instead_of_hiding_it_behind_IPv4()
+    {
+        var adapter = new FakeAdapter("dual-stack-ipv6-index-gap", 12)
+        {
+            InterfaceRead = () => new AdapterInterfaceConfiguration
+            {
+                Ipv4Index = 12,
+                Ipv6Index = null,
+                Addresses = ["192.0.2.2/24", "2001:db8::2/64"],
+            },
+        };
+        var native = new FakeNative
+        {
+            Metrics = (_, family) => family == NativeNetworkApi.AfInet
+                ? Collected<NativeNetworkApi.InterfaceMetrics>.Ok(new(111, 25, true, false))
+                : throw new InvalidOperationException("IPv6 metrics must not be read when the IPv6 index is unavailable."),
+        };
+
+        var result = await new WindowsInterfaceSource(new FakeAdapters(adapter), native)
+            .ReadAsync(CancellationToken.None);
+
+        Assert.Equal(EventStatus.Partial, result.Status);
+        Assert.Equal(2, result.Value!.Count);
+        var ipv4 = Assert.Single(result.Value, item => item.Family == "ipv4");
+        Assert.Equal(25, ipv4.Metric);
+        var ipv6 = Assert.Single(result.Value, item => item.Family == "ipv6");
+        Assert.Equal(0, ipv6.IfIndex);
+        Assert.Null(ipv6.Metric);
+        Assert.Null(ipv6.AutomaticMetric);
+        Assert.Null(ipv6.DisableDefaultRoutes);
+        Assert.Contains("ipv6_interface_index_unavailable", ipv6.Reason, StringComparison.Ordinal);
+        Assert.Contains(result.Errors, error => error.Contains("ipv6_interface_index_unavailable", StringComparison.Ordinal));
+        Assert.Equal(1, native.MetricCalls[(12, NativeNetworkApi.AfInet)]);
+        Assert.False(native.MetricCalls.ContainsKey((12, NativeNetworkApi.AfInet6)));
     }
 
     [Fact]

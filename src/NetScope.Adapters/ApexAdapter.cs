@@ -59,9 +59,29 @@ public sealed class ApexAdapter : IClientConfigAdapter
             {
                 "runtime API 证据不包含磁盘 mtime/哈希；磁盘文件未作为本证据来源。",
             };
+            var runtimeNotices = new List<string>();
             if (runtime!.Error is not null)
             {
                 runtimeGaps.Add("runtime API 报告证据不完整；仅保留可验证的白名单事实。");
+            }
+
+            var runtimeCoverage = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var expected in ApexConfigParser.ExpectedKeys)
+            {
+                if (runtimeFacts.ContainsKey(expected))
+                {
+                    runtimeCoverage[expected] = ConfigFactCoverage.Present;
+                }
+                else if (ApexConfigParser.RequiredKeys.Contains(expected, StringComparer.Ordinal))
+                {
+                    runtimeCoverage[expected] = ConfigFactCoverage.MissingRequired;
+                    runtimeGaps.Add($"{expected}: runtime API 未提供，保持未知");
+                }
+                else
+                {
+                    runtimeCoverage[expected] = ConfigFactCoverage.MissingOptional;
+                    runtimeNotices.Add($"{expected}: runtime API 未提供（可选项），保持未知");
+                }
             }
 
             return Task.FromResult(new ClientConfigEvidence
@@ -76,6 +96,8 @@ public sealed class ApexAdapter : IClientConfigAdapter
                 Valid = true,
                 ValidityReason = null,
                 Facts = runtimeFacts,
+                Notices = runtimeNotices,
+                Coverage = runtimeCoverage,
                 Gaps = runtimeGaps,
             });
         }
@@ -192,6 +214,8 @@ public sealed class ApexAdapter : IClientConfigAdapter
             Valid = parsed.Valid,
             ValidityReason = parsed.ValidityReason,
             Facts = parsed.Facts,
+            Notices = parsed.Notices,
+            Coverage = parsed.Coverage,
             Gaps = WithFallback(parsed.Gaps, fallbackGap, startReferenceGap),
         };
     }

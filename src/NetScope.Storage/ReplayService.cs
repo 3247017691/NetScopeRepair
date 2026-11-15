@@ -84,6 +84,21 @@ public sealed class ReplayService
     {
         using var log = new NdjsonEventLog(path);
         var read = log.Read();
+        return FromRead(read);
+    }
+
+    /// <summary>
+    /// Replays already-extracted NDJSON text (for example the events entry of a case package).
+    /// No file is written and no path is resolved; the same strict reader and codec are used.
+    /// </summary>
+    public ReplayResult ReplayText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return FromRead(NdjsonEventLog.Parse(text));
+    }
+
+    private static ReplayResult FromRead(EventLogReadResult read)
+    {
         var decoded = EvidenceEventCodec.Decode(read.Events);
 
         return new ReplayResult

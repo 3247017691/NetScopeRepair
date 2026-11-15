@@ -20,7 +20,7 @@ public sealed class ApexAdapterTests
         Assert.True(evidence.Valid);
         Assert.Equal(KnownClientIds.Apex, evidence.ClientId);
         Assert.Equal(ConfigProvenance.DiskOnly, evidence.Provenance);
-        Assert.Equal("apex-shared-preferences-json/1.0.0", evidence.ParserVersion);
+        Assert.Equal("apex-shared-preferences-json/1.0.1", evidence.ParserVersion);
         Assert.Equal(ConfigPath, evidence.SourcePath);
         Assert.Equal(ReadAt, evidence.ReadAt);
         Assert.Equal(ModifiedAt, evidence.FileModifiedAt);

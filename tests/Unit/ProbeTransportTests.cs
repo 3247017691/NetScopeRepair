@@ -106,16 +106,77 @@ public sealed class ProbeTransportTests
     }
 
     [Fact]
-    public async Task Family_selection_remains_an_explicit_gap_without_creating_a_handler()
+    public async Task Explicit_family_on_the_proxy_path_is_still_requested_with_target_family_unknown()
     {
         var selected = new List<ProbeHandlerOptions>();
         using var transport = Transport(selected);
         var result = await transport.SendAsync(Request() with { AddressFamily = "ipv6" }, CancellationToken.None);
 
+        // R1-B: the proxy resolves the target, so the request is still sent but the target family
+        // remains honestly unknown; the requested policy is preserved separately.
+        Assert.Equal(EventStatus.Ok, result.Status);
+        Assert.Null(result.TransportError);
+        Assert.Equal("ipv6", result.RequestedAddressFamily);
+        Assert.Null(result.TargetAddressFamily);
+        Assert.Equal(ProbeTargetFamilyStatus.UnknownThroughProxy, result.TargetAddressFamilyStatus);
+        Assert.Empty(result.ResolvedAddresses);
+        Assert.Null(result.ResolutionSource);
+        Assert.Null(result.Connection);
+        Assert.Single(selected);
+        Assert.Equal(ProbeAddressFamily.IPv6, selected[0].AddressFamily);
+    }
+
+    [Theory]
+    [InlineData("carrier-pigeon")]
+    [InlineData("ipv5")]
+    [InlineData("v6-only")]
+    public async Task Unknown_family_values_are_rejected_before_any_handler_is_created(string family)
+    {
+        var selected = new List<ProbeHandlerOptions>();
+        using var transport = Transport(selected);
+        var result = await transport.SendAsync(Request() with { AddressFamily = family }, CancellationToken.None);
+
         Assert.Equal(EventStatus.Unsupported, result.Status);
-        Assert.Equal("address_family_not_enforced", result.TransportError);
-        Assert.Equal("unknown", result.FailedEndpoint);
+        Assert.Equal("unsupported_address_family", result.TransportError);
+        Assert.Empty(result.ResolvedAddresses);
+        Assert.Null(result.Connection);
         Assert.Empty(selected);
+    }
+
+    [Fact]
+    public async Task System_default_target_family_is_not_claimed_but_the_request_is_still_sent()
+    {
+        var selected = new List<ProbeHandlerOptions>();
+        using var transport = Transport(selected);
+        var result = await transport.SendAsync(
+            Request() with { Path = ProbePath.SystemDefault, ExplicitProxyEndpoint = null, AddressFamily = "ipv4" },
+            CancellationToken.None);
+
+        Assert.Equal(EventStatus.Ok, result.Status);
+        Assert.Equal("ipv4", result.RequestedAddressFamily);
+        Assert.Null(result.TargetAddressFamily);
+        Assert.Equal(ProbeTargetFamilyStatus.UnknownSystemDefault, result.TargetAddressFamilyStatus);
+        Assert.Null(result.FailedEndpoint);
+        Assert.Single(selected);
+        Assert.Contains("cannot be enforced or observed", result.Notice, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task A_custom_handler_receives_the_family_but_never_produces_connection_claims()
+    {
+        var selected = new List<ProbeHandlerOptions>();
+        using var transport = Transport(selected);
+        var result = await transport.SendAsync(
+            Request() with { Path = ProbePath.NoExplicitProxy, AddressFamily = "ipv4" },
+            CancellationToken.None);
+
+        Assert.Equal(EventStatus.Ok, result.Status);
+        Assert.Equal(ProbeAddressFamily.IPv4, Assert.Single(selected).AddressFamily);
+        // The injected handler has no connect seam, so the transport must not invent facts or reuse.
+        Assert.Empty(result.ResolvedAddresses);
+        Assert.Null(result.ResolutionSource);
+        Assert.Null(result.ResolvedAt);
+        Assert.Null(result.Connection);
     }
 
     [Fact]
@@ -234,3 +295,5 @@ public sealed class ProbeTransportTests
             });
     }
 }
+
+

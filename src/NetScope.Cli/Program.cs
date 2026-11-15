@@ -3,16 +3,20 @@ using NetScope.Application;
 using NetScope.Collectors.Windows;
 using NetScope.Domain;
 using NetScope.Diagnostics;
+using NetScope.Maintenance;
 using NetScope.Storage;
 
 namespace NetScope.Cli;
 
 /// <summary>
-/// Read-only command line entry point for M0.
+/// Command line entry point.
 /// <para>
-/// Every command only reads. <c>check</c> inspects the published fixture, <c>snapshot</c> reads
-/// the local network state once, <c>demo</c> runs the synthetic pipeline into a local directory
-/// and <c>replay</c> reads a captured session. None of them can change a setting.
+/// The M0 commands (<c>check</c>, <c>snapshot</c>, <c>demo</c>, <c>replay</c>, <c>case-replay</c>)
+/// stay strictly read-only. The maintenance commands added later (<c>status</c>, <c>repair</c>,
+/// <c>proxy</c>) do real work on the local machine: <c>status</c> only observes, while
+/// <c>repair --apply</c> and <c>proxy on|off</c> write user-scope proxy settings, interface metrics
+/// and DNS caches. Every applied change is journaled and can be reverted with
+/// <c>repair --restore</c>. Nothing is written without an explicit --apply / on / off verb.
 /// </para>
 /// </summary>
 internal static class Program
@@ -49,6 +53,10 @@ internal static class Program
                 "snapshot" => await RunSnapshotAsync().ConfigureAwait(false),
                 "demo" => await RunDemoAsync(rest).ConfigureAwait(false),
                 "replay" => RunReplay(rest),
+                "case-replay" or "casereplay" => CaseReplayCommand.Run(rest),
+                "status" => await RunStatusAsync().ConfigureAwait(false),
+                "repair" => await RunRepairAsync(rest).ConfigureAwait(false),
+                "proxy" => await RunProxyAsync(rest).ConfigureAwait(false),
                 "help" or "--help" or "-h" => Usage(),
                 _ => UnknownCommand(command),
             };
@@ -322,17 +330,184 @@ internal static class Program
 
     private static string Format(bool? value) => value is null ? "-" : value.Value ? "yes" : "no";
 
+    // ------------------------------------------------------------------ real maintenance
+
+    private static QuickRepairService MaintenanceService() => new();
+
+    private static async Task<int> RunStatusAsync()
+    {
+        var service = MaintenanceService();
+        Console.WriteLine("=== NetScope 本机体检（真实数据 · 只读）===");
+        var plan = await service.PlanAsync(deep: false, CancellationToken.None).ConfigureAwait(false);
+        var snapshot = plan.Snapshot;
+
+        Console.WriteLine($"观测时间  {snapshot.ObservedAt:yyyy-MM-dd HH:mm:ss}   管理员权限={snapshot.IsElevated}");
+        Console.WriteLine($"有网出口  if={snapshot.ActiveEgressIndex} {snapshot.ActiveEgressAlias}");
+        Console.WriteLine($"代理可用端口  {(snapshot.WorkingProxyPort is null ? "(无)" : "127.0.0.1:" + snapshot.WorkingProxyPort)}"
+            + $"   监听中的候选端口={string.Join(",", snapshot.ListeningProxyPorts)}");
+        Console.WriteLine();
+
+        Console.WriteLine("默认路由 / 接口");
+        foreach (var item in snapshot.Interfaces.Where(item => item.HasDefaultRoute))
+        {
+            var tag = item.Connectivity == "Internet" ? "有网" : "无网";
+            Console.WriteLine($"  if={item.Index,-3} {item.Alias,-16} 网关={item.NextHop,-16} 度量={item.InterfaceMetric,-4} [{tag}] DNS={(item.DnsServers.Count > 0 ? string.Join(",", item.DnsServers) : "自动")}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("代理配置");
+        Console.WriteLine($"  系统代理  ProxyEnable={(snapshot.SystemProxyEnabled ? 1 : 0)}  ProxyServer={snapshot.SystemProxyServer}  端口={snapshot.SystemProxyPort}");
+        Console.WriteLine($"  WinHTTP   {(snapshot.WinHttpIsProxy ? "127.0.0.1:" + snapshot.WinHttpPort : "直连")}");
+        foreach (var layer in snapshot.ProxyLayers)
+        {
+            var state = layer.Port <= 0 ? "端口未解析" : layer.PortListening ? "端口在听" : "端口无监听 ← 死路";
+            Console.WriteLine($"  {layer.Scope,-8}\\{layer.Name,-12} = {layer.Value,-32} [{state}]");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"发现 {plan.Findings.Count} 项");
+        foreach (var finding in plan.Findings)
+            Console.WriteLine($"  [{finding.Severity.ToString().ToUpperInvariant(),-8}] {finding.Code,-24} {finding.Title}");
+
+        Console.WriteLine();
+        Console.WriteLine($"可执行动作 {plan.Actions.Count} 项（默认选中 {plan.Actions.Count(action => action.SelectedByDefault)} 项）");
+        foreach (var action in plan.Actions)
+            Console.WriteLine($"  [{(action.SelectedByDefault ? "x" : " ")}] {action.Id,-40} {action.Title}");
+
+        foreach (var note in snapshot.Notes) Console.WriteLine("  说明: " + note);
+        Console.WriteLine();
+        Console.WriteLine("status 只读取，不修改任何设置。执行：netscope repair --apply --yes");
+        return Success;
+    }
+
+    private static async Task<int> RunRepairAsync(string[] args)
+    {
+        var service = MaintenanceService();
+        var restore = args.Contains("--restore", StringComparer.OrdinalIgnoreCase);
+        var dryRun = args.Contains("--dry-run", StringComparer.OrdinalIgnoreCase)
+            || !args.Contains("--apply", StringComparer.OrdinalIgnoreCase);
+        var deep = args.Contains("--deep", StringComparer.OrdinalIgnoreCase);
+        var yes = args.Contains("--yes", StringComparer.OrdinalIgnoreCase) || args.Contains("-y", StringComparer.OrdinalIgnoreCase);
+
+        if (restore)
+        {
+            Console.WriteLine("=== 回滚上一次修复 ===");
+            var restoreReport = await service.RestoreAsync(false, CancellationToken.None).ConfigureAwait(false);
+            foreach (var message in restoreReport.Messages) Console.WriteLine("  " + message);
+            Console.WriteLine($"  还原 {restoreReport.Restored} 项，失败 {restoreReport.Failed} 项。");
+            return restoreReport.Failed > 0 ? ContractFailure : Success;
+        }
+
+        var plan = await service.PlanAsync(deep, CancellationToken.None).ConfigureAwait(false);
+        Console.WriteLine("=== 网络残留修复计划（本机真实数据）===");
+        Console.WriteLine($"发现 {plan.Findings.Count} 项，动作 {plan.Actions.Count} 项，高风险模式={deep}");
+        foreach (var finding in plan.Findings)
+            Console.WriteLine($"  [{finding.Severity.ToString().ToUpperInvariant(),-8}] {finding.Title} — {finding.Detail}");
+        Console.WriteLine();
+        foreach (var action in plan.Actions.Where(action => action.SelectedByDefault))
+            Console.WriteLine($"  将执行 [{action.Risk}] {action.Title}  {action.Current} → {action.Desired ?? "(空)"}");
+        Console.WriteLine();
+
+        if (dryRun)
+        {
+            Console.WriteLine("这是预览（DryRun），没有修改任何设置。执行：netscope repair --apply --yes");
+            return Success;
+        }
+
+        if (!yes)
+        {
+            Console.Write("确认执行以上动作？[y/N] ");
+            var answer = Console.ReadLine();
+            if (answer is null || !answer.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("已取消，未修改任何设置。");
+                return Success;
+            }
+        }
+
+        var report = await service.ApplyAsync(plan, null, false, CancellationToken.None).ConfigureAwait(false);
+        foreach (var result in report.Results)
+        {
+            Console.WriteLine(result.Applied
+                ? $"  ✔ {result.Title}  {result.Before} → {result.After}"
+                : $"  · {result.Title}  跳过/失败：{result.Error ?? "未选中"}");
+        }
+        foreach (var message in report.Messages) Console.WriteLine("  " + message);
+        Console.WriteLine($"  应用 {report.Applied} / 跳过 {report.Skipped} / 失败 {report.Failed}");
+        return report.Failed > 0 ? ContractFailure : Success;
+    }
+
+    private static async Task<int> RunProxyAsync(string[] args)
+    {
+        var service = MaintenanceService();
+        var verb = args.FirstOrDefault(argument => !argument.StartsWith("--", StringComparison.Ordinal)) ?? "status";
+        var dryRun = args.Contains("--dry-run", StringComparer.OrdinalIgnoreCase);
+
+        if (verb.Equals("status", StringComparison.OrdinalIgnoreCase))
+        {
+            var snapshot = await service.InspectAsync(CancellationToken.None).ConfigureAwait(false);
+            Console.WriteLine("=== 代理状态（真实数据）===");
+            Console.WriteLine($"  系统代理  ProxyEnable={(snapshot.SystemProxyEnabled ? 1 : 0)}  {snapshot.SystemProxyServer}");
+            foreach (var layer in snapshot.ProxyLayers)
+                Console.WriteLine($"  {layer.Scope}\\{layer.Name} = {layer.Value} [{(layer.PortListening ? "活" : "死" )}]");
+            Console.WriteLine($"  WinHTTP  {(snapshot.WinHttpIsProxy ? "127.0.0.1:" + snapshot.WinHttpPort : "直连")}");
+            Console.WriteLine($"  可用代理端口  {(snapshot.WorkingProxyPort is null ? "(无)" : snapshot.WorkingProxyPort.ToString())}");
+            return Success;
+        }
+
+        if (verb.Equals("off", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("=== 关代理：回到纯直连 ===");
+            var report = await service.ProxyOffAsync(dryRun, CancellationToken.None).ConfigureAwait(false);
+            return PrintReport(report);
+        }
+
+        if (verb.Equals("on", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("=== 开代理：对齐到真实端口 ===");
+            var report = await service.ProxyOnAsync(7890, dryRun, CancellationToken.None).ConfigureAwait(false);
+            return PrintReport(report);
+        }
+
+        Console.Error.WriteLine("FAILED: 用法 netscope proxy status|on|off [--dry-run]");
+        return BadArguments;
+    }
+
+    private static int PrintReport(RepairReport report)
+    {
+        foreach (var result in report.Results)
+        {
+            Console.WriteLine(result.Applied
+                ? $"  ✔ {result.Title}  {result.Before} → {result.After}"
+                : $"  · {result.Title}  {(result.Error ?? "预览，未修改")}");
+        }
+        foreach (var message in report.Messages) Console.WriteLine("  " + message);
+        Console.WriteLine($"  应用 {report.Applied} / 跳过 {report.Skipped} / 失败 {report.Failed}"
+            + (report.DryRun ? "   [DryRun 预览]" : ""));
+        return report.Failed > 0 ? ContractFailure : Success;
+    }
+
     private static int Usage()
     {
-        Console.WriteLine("netscope - NetScope Repair M0 read-only CLI");
+        Console.WriteLine("netscope - NetScope Repair CLI");
         Console.WriteLine();
-        Console.WriteLine("  netscope check                 inspect the published contract and the synthetic fixture");
-        Console.WriteLine("  netscope snapshot              read the local network state once (read-only, no elevation)");
-        Console.WriteLine("  netscope demo [--out <dir>]    run the synthetic pipeline and write a session log + index");
-        Console.WriteLine("  netscope replay [<file>]       replay a captured NDJSON session offline");
-        Console.WriteLine("  netscope help                  show this text");
+        Console.WriteLine("只读命令（M0/M1，永不修改系统）：");
+        Console.WriteLine("  netscope check                 校验契约与合成 fixture");
+        Console.WriteLine("  netscope snapshot              读一次本机网络状态");
+        Console.WriteLine("  netscope demo [--out <dir>]    跑合成流水线，写本地演示日志");
+        Console.WriteLine("  netscope replay [<file>]       离线回放已捕获会话");
+        Console.WriteLine("  netscope case-replay <pkg.zip> 只读重放本地故障包");
         Console.WriteLine();
-        Console.WriteLine("No command in M0 can change a network setting, start a repair or request elevation.");
+        Console.WriteLine("真实维护命令（本机真实数据；带写入能力，全部可回滚）：");
+        Console.WriteLine("  netscope status                本机体检：死代理 / 残留接口 / 幽灵网卡（只读）");
+        Console.WriteLine("  netscope repair                预览修复计划（等同 --dry-run）");
+        Console.WriteLine("  netscope repair --apply --yes  真执行默认动作（加 --deep 含高风险项）");
+        Console.WriteLine("  netscope repair --restore      回滚上一次/首次以来的全部改动");
+        Console.WriteLine("  netscope proxy status          查看代理配置与端口存活（只读）");
+        Console.WriteLine("  netscope proxy on|off          开/关代理（off = 纯直连）");
+        Console.WriteLine();
+        Console.WriteLine("只有 --apply / proxy on|off 会写系统；每次改动记入 %LOCALAPPDATA%\\NetScopeRepair\\maintenance\\journal.json。");
+        Console.WriteLine("接口度量 / WinHTTP / 机器级变量需要管理员权限，权限不足会如实跳过而不会假装成功。");
         return Success;
     }
 

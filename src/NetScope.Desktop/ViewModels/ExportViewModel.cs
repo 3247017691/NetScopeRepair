@@ -1,12 +1,16 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using NetScope.Application;
+using NetScope.Storage.Export;
 
 namespace NetScope.Desktop.ViewModels;
 
 public sealed record ExportFileRow(string Name, string BytesText, string Purpose);
 
 public sealed record ExportRedactionRow(string Category, string CountText, string Strategy);
+
+/// <summary>One package-shape line mirrored from the manifest sections, shown apart from warnings.</summary>
+public sealed record ExportShapeRow(string Label, string Value);
 
 /// <summary>
 /// Export preview and creation. The preview lists categories and counts only; it never shows the
@@ -39,6 +43,8 @@ public sealed class ExportViewModel : ViewModelBase
     public ObservableCollection<ExportFileRow> Files { get; } = new();
 
     public ObservableCollection<ExportRedactionRow> Redactions { get; } = new();
+
+    public ObservableCollection<ExportShapeRow> Shape { get; } = new();
 
     public ObservableCollection<string> Warnings { get; } = new();
 
@@ -91,21 +97,93 @@ public sealed class ExportViewModel : ViewModelBase
             return;
         }
 
-        var preview = await Task.Run(() => _exporter.Preview(path)).ConfigureAwait(true);
+        ExportPreview preview;
+        ExportPackageDetails? details = null;
+        if (_exporter is IExportPackageDetailsProvider provider)
+        {
+            details = await Task.Run(() => provider.PreviewDetails(path)).ConfigureAwait(true);
+            preview = details.Preview;
+        }
+        else
+        {
+            preview = await Task.Run(() => _exporter.Preview(path)).ConfigureAwait(true);
+        }
+
         Files.Clear();
         foreach (var file in preview.Files)
             Files.Add(new ExportFileRow(file.Name, Size(file.Bytes), file.Purpose));
         Redactions.Clear();
         foreach (var redaction in preview.Redactions)
             Redactions.Add(new ExportRedactionRow(redaction.Category, redaction.ReplacedFields + " 处", redaction.Strategy));
+        Shape.Clear();
+        if (details is not null) FillShape(details.Statistics);
         Warnings.Clear();
         foreach (var warning in preview.Warnings) Warnings.Add(warning);
         Blocked.Clear();
         foreach (var reason in preview.BlockedReasons) Blocked.Add(reason);
-        CountsText = $"事件 {preview.EventCount} · 观察缺口 {preview.GapCount} · 诊断 {preview.DiagnosisCount} · 生成时间 {preview.GeneratedAt.ToLocalTime():MM-dd HH:mm:ss}";
+        CountsText = $"事件 {preview.EventCount} · 诊断 {preview.DiagnosisCount} · 包内文件 {preview.Files.Count} · 生成时间 {preview.GeneratedAt.ToLocalTime():MM-dd HH:mm:ss}";
         CanExport = preview.CanExport;
         StatusMessage = preview.CanExport ? "预览完成：确认后选择一个空目录导出。" : "当前无法导出，原因见下方阻断项。";
     }
+
+    /// <summary>
+    /// Mirrors the manifest's separated sections in the preview. An old exporter that only
+    /// implements <see cref="IIncidentExporter"/> simply leaves this block empty instead of
+    /// showing invented counts.
+    /// </summary>
+    private void FillShape(PackageStatistics statistics)
+    {
+        var gaps = statistics.Gaps;
+        Shape.Add(new ExportShapeRow("缺口",
+            $"序列缺口 {gaps.SequenceGapCount} · 独立 gap 事件 {gaps.GapEventCount} · "
+            + $"观察缺口事件 {gaps.ObservationGapEventCount} · 失败事件 {gaps.FailedEventCount}"));
+
+        var completeness = statistics.Completeness;
+        Shape.Add(new ExportShapeRow("域完整性", completeness.SnapshotCount == 0
+            ? "无快照；无法判断采集是否完整。"
+            : $"{completeness.SnapshotCount} 个快照，其中 {completeness.IncompleteSnapshotCount} 个存在非 ok 域；"
+              + $"采集完整：{(completeness.CollectionComplete ? "是" : "否")}（gaps=0 只表示没有独立 gap 事件）"
+              + $"\n域：{Statuses(completeness.Domains)}"
+              + $"\n子域：{Statuses(completeness.ProxySubdomains)}"));
+
+        var probes = statistics.ProbeCoverage;
+        Shape.Add(new ExportShapeRow("探测覆盖", probes.HasProbeResults
+            ? $"探测事件 {probes.ProbeEvents} · 组 {probes.ProbeGroups} · 目标 {probes.TargetCount} · "
+              + $"成功 {probes.Successful} / 部分 {probes.Partial} / 失败 {probes.Failed} · "
+              + $"地址族 {Join(probes.AddressFamilies)} · 路径 {Join(probes.Paths)}"
+            : "无 probe 结果：未做外部可达性验证；本地快照不等于网络健康。"));
+
+        var versions = statistics.Versions;
+        Shape.Add(new ExportShapeRow("版本",
+            $"app {versions.AppVersion} @ {versions.AppBuildCommit}（{CommitSourceText(versions.AppBuildCommitSource)}）· "
+            + $"规则 {Join(versions.RuleVersions)} · 解析器 {Join(versions.ParserVersions)} · "
+            + $"证据负载 {Join(versions.EvidencePayloadVersions)} · 来源版本 {Join(versions.SourceVersions)} · "
+            + $"脱敏策略 {versions.RedactionPolicyVersion} · 包格式 {versions.PackageFormatVersion}"));
+
+        var changes = statistics.Changes;
+        var fields = string.Join("、", changes.FieldCounts.Select(item => item.Field + "×" + item.Count));
+        Shape.Add(new ExportShapeRow("变化摘要",
+            $"相邻可比快照对 {changes.ComparablePairs} · 接口 {changes.InterfacesCompared} 个 · "
+            + $"变化字段 {(string.IsNullOrEmpty(fields) ? "无" : fields)} · "
+            + $"清单 {changes.Changes.Count} 条{(changes.Truncated ? "（已截断）" : "")}；只记录参数变化，不推断原因或操作者。"));
+
+        Shape.Add(new ExportShapeRow("诊断来源",
+            $"包内记录诊断 {statistics.Diagnoses.RecordedInPackage} 条 · 导出时离线重算 {statistics.Diagnoses.RecomputedByExporter} 条；"
+            + "导出器不重跑规则，离线重算需由独立只读工具完成。"));
+    }
+
+    private static string Statuses(IReadOnlyList<PackageStatusCount> counts) => counts.Count == 0
+        ? "无"
+        : string.Join("、", counts.Select(item => item.Path + " " + item.Status + "×" + item.Count));
+
+    private static string Join(IReadOnlyList<string> values) => values.Count == 0 ? "无" : string.Join("、", values);
+
+    private static string CommitSourceText(string source) => source switch
+    {
+        "assembly_informational_version" => "程序集 build 版本",
+        "assembly_metadata" => "程序集元数据",
+        _ => "构建未嵌入 commit",
+    };
 
     public async Task ExportAsync()
     {
@@ -131,6 +209,7 @@ public sealed class ExportViewModel : ViewModelBase
     {
         Files.Clear();
         Redactions.Clear();
+        Shape.Clear();
         Warnings.Clear();
         Blocked.Clear();
         CanExport = false;

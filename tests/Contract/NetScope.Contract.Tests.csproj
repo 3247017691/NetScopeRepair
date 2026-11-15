@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\NetScope.Domain\NetScope.Domain.csproj" />
     <ProjectReference Include="..\..\src\NetScope.Application\NetScope.Application.csproj" />
+    <ProjectReference Include="..\..\src\NetScope.Storage\NetScope.Storage.csproj" />
   </ItemGroup>
 
   <ItemGroup>

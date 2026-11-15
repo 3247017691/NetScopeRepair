@@ -43,6 +43,26 @@ public static class EvidenceEventCodec
         ["diagnosis"] = JsonSerializer.SerializeToNode(value, Options),
     };
 
+    /// <summary>
+    /// A rule execution failure is written as an untyped gap payload on purpose: it is not a
+    /// diagnosis, old readers skip it without a version mismatch, and it never cites evidence.
+    /// </summary>
+    public static JsonObject RuleFailure(RuleEvaluationFailure value) => new()
+    {
+        ["rule_id"] = value.RuleId,
+        ["rule_version"] = value.RuleVersion,
+        ["error_type"] = value.ErrorType,
+        ["summary"] = value.Summary,
+    };
+
+    /// <summary>An adapter domain that could not be read, kept visible in the timeline and export.</summary>
+    public static JsonObject ObservationSourceGap(ObservationEvidenceGap value) => new()
+    {
+        ["source"] = value.Source,
+        ["status"] = WireNames.Of(value.Status),
+        ["reason"] = value.Reason,
+    };
+
     private static JsonObject Metadata(string id, string sourceEventId) => new()
     {
         ["evidence_id"] = id,
@@ -203,16 +223,24 @@ public static class EvidenceEventCodec
         foreach (var record in pendingRecords)
         {
             var snapshotId = record.Envelope.Refs.SnapshotId;
-            if (snapshotId is null && record.Record.Facts.TryGetValue("snapshot_id", out var factSnapshotId))
+            var factSnapshotId = record.Record.Facts.TryGetValue("snapshot_id", out var statedSnapshot)
+                && !string.IsNullOrWhiteSpace(statedSnapshot) ? statedSnapshot : null;
+            if (factSnapshotId is null && record.Record.Facts.ContainsKey("snapshot_id"))
             {
-                if (string.IsNullOrWhiteSpace(factSnapshotId))
-                {
-                    problems.Add($"record {record.Record.EvidenceId}: empty snapshot reference");
-                    continue;
-                }
-
-                snapshotId = factSnapshotId;
+                problems.Add($"record {record.Record.EvidenceId}: empty snapshot reference");
+                continue;
             }
+
+            if (snapshotId is not null && factSnapshotId is not null
+                && !string.Equals(snapshotId, factSnapshotId, StringComparison.Ordinal))
+            {
+                // The reference and the record's own snapshot fact must not disagree; preferring
+                // either one silently would attach the record to an arbitrary cycle.
+                problems.Add($"record {record.Record.EvidenceId}: snapshot reference {snapshotId} disagrees with fact {factSnapshotId}");
+                continue;
+            }
+
+            snapshotId ??= factSnapshotId;
 
             if (snapshotId is not null)
             {

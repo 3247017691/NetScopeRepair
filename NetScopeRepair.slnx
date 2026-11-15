@@ -2,12 +2,15 @@
   <Folder Name="/src/">
     <Project Path="src/NetScope.Application/NetScope.Application.csproj" />
     <Project Path="src/NetScope.Adapters/NetScope.Adapters.csproj" />
+    <Project Path="src/NetScope.Broker/NetScope.Broker.csproj" />
     <Project Path="src/NetScope.Cli/NetScope.Cli.csproj" />
     <Project Path="src/NetScope.Collectors.Windows/NetScope.Collectors.Windows.csproj" />
     <Project Path="src/NetScope.Desktop/NetScope.Desktop.csproj" />
     <Project Path="src/NetScope.Diagnostics/NetScope.Diagnostics.csproj" />
     <Project Path="src/NetScope.Domain/NetScope.Domain.csproj" />
+    <Project Path="src/NetScope.Maintenance/NetScope.Maintenance.csproj" />
     <Project Path="src/NetScope.Probes/NetScope.Probes.csproj" />
+    <Project Path="src/NetScope.Repair/NetScope.Repair.csproj" />
     <Project Path="src/NetScope.Storage/NetScope.Storage.csproj" />
   </Folder>
   <Folder Name="/tests/" />
@@ -29,8 +32,14 @@
   <Folder Name="/tests/Replay/">
     <Project Path="tests/Replay/NetScope.Replay.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Maintenance/">
+    <Project Path="tests/Maintenance/NetScope.Maintenance.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/Windows/">
     <Project Path="tests/Windows/NetScope.Windows.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/WindowsIntegration/">
+    <Project Path="tests/WindowsIntegration/NetScope.WindowsIntegration.Tests.csproj" />
   </Folder>
 </Solution>
 

@@ -12,7 +12,7 @@
     <ApplicationIcon>Resources\netscope.ico</ApplicationIcon>
     <Title>NetScope Repair</Title>
     <Product>NetScope Repair</Product>
-    <Description>Read-only proxy network diagnostics for Windows</Description>
+    <Description>Windows proxy network diagnostics with real, reversible quick repair</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,6 +33,7 @@
     <ProjectReference Include="..\NetScope.Collectors.Windows\NetScope.Collectors.Windows.csproj" />
     <ProjectReference Include="..\NetScope.Diagnostics\NetScope.Diagnostics.csproj" />
     <ProjectReference Include="..\NetScope.Domain\NetScope.Domain.csproj" />
+    <ProjectReference Include="..\NetScope.Maintenance\NetScope.Maintenance.csproj" />
     <ProjectReference Include="..\NetScope.Probes\NetScope.Probes.csproj" />
     <ProjectReference Include="..\NetScope.Storage\NetScope.Storage.csproj" />
   </ItemGroup>

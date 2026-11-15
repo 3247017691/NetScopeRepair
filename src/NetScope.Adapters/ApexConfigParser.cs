@@ -1,4 +1,5 @@
 using System.Text.Json;
+using NetScope.Application;
 
 namespace NetScope.Adapters;
 
@@ -11,9 +12,9 @@ namespace NetScope.Adapters;
 /// </summary>
 internal static class ApexConfigParser
 {
-    public const string ParserVersion = "apex-shared-preferences-json/1.0.0";
+    public const string ParserVersion = "apex-shared-preferences-json/1.0.1";
 
-    private static readonly string[] ExpectedKeys =
+    internal static readonly string[] ExpectedKeys =
     [
         "mixed_port",
         "mode",
@@ -22,11 +23,20 @@ internal static class ApexConfigParser
         "dns_fake_ip_range",
     ];
 
+    internal static readonly string[] RequiredKeys =
+    [
+        "mixed_port",
+        "mode",
+        "tun_auto_route",
+    ];
+
     public static WhitelistParseResult Parse(string text)
     {
         var facts = new Dictionary<string, string>(StringComparer.Ordinal);
+        var notices = new List<string>();
         var gaps = new List<string>();
         string? invalid = null;
+        var invalidField = (string?)null;
         var sawUnknown = false;
         var recognized = 0;
 
@@ -62,6 +72,7 @@ internal static class ApexConfigParser
                 Valid = false,
                 ValidityReason = invalid,
                 Facts = facts,
+                Coverage = BuildInvalidCoverage(facts, invalidField),
                 Gaps = gaps,
             };
         }
@@ -73,14 +84,27 @@ internal static class ApexConfigParser
 
         if (sawUnknown)
         {
-            gaps.Add("配置包含白名单之外的键；其内容未被读取，也未进入事实或文本。");
+            notices.Add("配置包含白名单之外的键；内容未被读取，也不计入解析缺口。");
         }
 
+        var coverage = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var expected in ExpectedKeys)
         {
-            if (!facts.ContainsKey(expected))
+            if (facts.ContainsKey(expected))
             {
-                gaps.Add($"{expected}: 未提供，保持未知");
+                coverage[expected] = ConfigFactCoverage.Present;
+                continue;
+            }
+
+            if (RequiredKeys.Contains(expected, StringComparer.Ordinal))
+            {
+                coverage[expected] = ConfigFactCoverage.MissingRequired;
+                gaps.Add($"{expected}: 必需字段未提供，保持未知");
+            }
+            else
+            {
+                coverage[expected] = ConfigFactCoverage.MissingOptional;
+                notices.Add($"{expected}: 未提供（可选项），保持未知");
             }
         }
 
@@ -88,6 +112,8 @@ internal static class ApexConfigParser
         {
             Valid = true,
             Facts = facts,
+            Notices = notices,
+            Coverage = coverage,
             Gaps = gaps,
         };
 
@@ -118,6 +144,7 @@ internal static class ApexConfigParser
             if (value.ValueKind is JsonValueKind.Object or JsonValueKind.Array or JsonValueKind.Null or JsonValueKind.Undefined)
             {
                 invalid ??= $"白名单字段 {factKey} 的类型不是标量";
+                invalidField ??= factKey;
                 return;
             }
 
@@ -133,6 +160,7 @@ internal static class ApexConfigParser
             if (!TryValidate(factKey, raw, out var canonical, out var reason))
             {
                 invalid ??= reason;
+                invalidField ??= factKey;
                 return;
             }
 
@@ -141,6 +169,7 @@ internal static class ApexConfigParser
                 if (!string.Equals(existing, canonical, StringComparison.Ordinal))
                 {
                     invalid ??= $"白名单字段 {factKey} 出现多个取值，无法确定";
+                    invalidField ??= factKey;
                 }
 
                 return;
@@ -148,6 +177,25 @@ internal static class ApexConfigParser
 
             facts[factKey] = canonical;
         }
+    }
+
+    private static IReadOnlyDictionary<string, string> BuildInvalidCoverage(
+        IReadOnlyDictionary<string, string> facts,
+        string? invalidField)
+    {
+        var coverage = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var expected in ExpectedKeys)
+        {
+            coverage[expected] = facts.ContainsKey(expected)
+                ? ConfigFactCoverage.Present
+                : string.Equals(expected, invalidField, StringComparison.Ordinal)
+                    ? ConfigFactCoverage.Invalid
+                    : RequiredKeys.Contains(expected, StringComparer.Ordinal)
+                        ? ConfigFactCoverage.MissingRequired
+                        : ConfigFactCoverage.MissingOptional;
+        }
+
+        return coverage;
     }
 
     /// <summary>Validates already-minimized runtime-API facts, dropping anything outside the whitelist.</summary>

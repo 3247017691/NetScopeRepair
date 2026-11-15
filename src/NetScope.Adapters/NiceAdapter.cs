@@ -122,6 +122,8 @@ public sealed class NiceAdapter : IClientConfigAdapter
             Valid = parsed.Valid,
             ValidityReason = parsed.ValidityReason,
             Facts = parsed.Facts,
+            Notices = parsed.Notices,
+            Coverage = parsed.Coverage,
             Gaps = parsed.Gaps,
         });
     }

@@ -25,12 +25,14 @@ public sealed class ExportBlockedException : InvalidOperationException
 /// the complete package in memory before writing a single file. It has no network client, no
 /// import entry point and no repair capability.
 /// </summary>
-public sealed class IncidentExporter : IIncidentExporter
+public sealed class IncidentExporter : IIncidentExporter, IExportPackageDetailsProvider
 {
     private const int IncidentIdHexLength = 24;
     private const int MaxNameAttempts = 10;
 
-    public ExportPreview Preview(string sessionPath)
+    public ExportPreview Preview(string sessionPath) => PreviewDetails(sessionPath).Preview;
+
+    public ExportPackageDetails PreviewDetails(string sessionPath)
     {
         var analysis = Analyze(sessionPath);
         IReadOnlyList<ExportFileSummary> files = Array.Empty<ExportFileSummary>();
@@ -40,7 +42,7 @@ public sealed class IncidentExporter : IIncidentExporter
         {
             var previewSalt = RandomNumberGenerator.GetBytes(32);
             var built = IncidentPackageBuilder.Build(analysis.Replay, new string('0', IncidentIdHexLength),
-                previewSalt, analysis.Warnings);
+                previewSalt, analysis.Warnings, analysis.Statistics);
             files = built.Entries
                 .Select(entry => new ExportFileSummary
                 {
@@ -52,7 +54,7 @@ public sealed class IncidentExporter : IIncidentExporter
             redactions = built.Redactions;
         }
 
-        return new ExportPreview
+        var preview = new ExportPreview
         {
             // The preview is displayed without revealing a full local path (D2). The caller
             // already knows the path it passed; only the log file name is echoed back.
@@ -65,6 +67,12 @@ public sealed class IncidentExporter : IIncidentExporter
             Redactions = redactions,
             Warnings = analysis.Warnings,
             BlockedReasons = analysis.BlockedReasons,
+        };
+
+        return new ExportPackageDetails
+        {
+            Preview = preview,
+            Statistics = analysis.Statistics,
         };
     }
 
@@ -98,7 +106,8 @@ public sealed class IncidentExporter : IIncidentExporter
             var incidentId = DeriveIncidentId(salt, attempt);
             var candidate = Path.Combine(destination, "incident-" + incidentId + ".zip");
             if (File.Exists(candidate)) continue;
-            built = IncidentPackageBuilder.Build(analysis.Replay, incidentId, salt, analysis.Warnings);
+            built = IncidentPackageBuilder.Build(analysis.Replay, incidentId, salt, analysis.Warnings,
+                analysis.Statistics);
             packagePath = candidate;
             break;
         }
@@ -150,13 +159,13 @@ public sealed class IncidentExporter : IIncidentExporter
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
         {
             blocked.Add("The session path is not a valid local file path.");
-            return new SessionAnalysis(string.Empty, null, blocked, warnings);
+            return new SessionAnalysis(string.Empty, null, PackageStatistics.Empty, blocked, warnings);
         }
 
         if (!File.Exists(fullPath))
         {
             blocked.Add("The session log was not found.");
-            return new SessionAnalysis(fullPath, null, blocked, warnings);
+            return new SessionAnalysis(fullPath, null, PackageStatistics.Empty, blocked, warnings);
         }
 
         ReplayResult replay;
@@ -169,7 +178,7 @@ public sealed class IncidentExporter : IIncidentExporter
         {
             // Do not echo the exception text: an I/O message can contain a full local path.
             blocked.Add("The session log could not be read.");
-            return new SessionAnalysis(fullPath, null, blocked, warnings);
+            return new SessionAnalysis(fullPath, null, PackageStatistics.Empty, blocked, warnings);
         }
 
         var log = replay.Log;
@@ -198,12 +207,39 @@ public sealed class IncidentExporter : IIncidentExporter
             blocked.Add($"Typed evidence is inconsistent in {replay.EvidenceProblems.Count} place(s); export is refused.");
         }
 
+        var statistics = PackageStatisticsBuilder.Build(replay);
+        AddShapeWarnings(statistics, warnings);
         if (replay.Evidence?.Snapshot is null) warnings.Add("The package contains no network snapshot.");
         if (replay.Diagnoses.Count == 0) warnings.Add("The package contains no diagnoses.");
         if (replay.Summary.SyntheticCount > 0 && replay.Summary.SyntheticCount != replay.Summary.EventCount)
             warnings.Add("The session mixes synthetic and measured events; the package synthetic flag is false.");
 
-        return new SessionAnalysis(fullPath, replay, blocked, warnings);
+        return new SessionAnalysis(fullPath, replay, statistics, blocked, warnings);
+    }
+
+    /// <summary>
+    /// Turns the separated counters into user-facing warnings. A clean sequence (gaps=0) must not
+    /// be presented as a complete capture, and zero probes must not be presented as health.
+    /// </summary>
+    private static void AddShapeWarnings(PackageStatistics statistics, List<string> warnings)
+    {
+        if (statistics.ProbeCoverage.ProbeEvents == 0)
+        {
+            warnings.Add("The package contains no probe results; local snapshot status is not a reachability test.");
+        }
+
+        if (statistics.Completeness.SnapshotCount > 0 && statistics.Completeness.IncompleteSnapshotCount > 0)
+        {
+            warnings.Add($"{statistics.Completeness.IncompleteSnapshotCount} of "
+                + $"{statistics.Completeness.SnapshotCount} snapshot(s) have incomplete data domains; "
+                + $"gaps={statistics.Gaps.SequenceGapCount} counts sequence gaps and gap_events="
+                + $"{statistics.Gaps.GapEventCount} counts independent gap records, so neither means the domains were read completely.");
+        }
+
+        if (statistics.Gaps.GapEventCount > 0 && statistics.Completeness.IncompleteSnapshotCount == 0)
+        {
+            warnings.Add($"The package has {statistics.Gaps.GapEventCount} independent gap event(s); this is a recorded capture gap.");
+        }
     }
 
     private static string FileNameOnly(string path)
@@ -248,5 +284,5 @@ public sealed class IncidentExporter : IIncidentExporter
     }
 
     private sealed record SessionAnalysis(string FullPath, ReplayResult? Replay,
-        IReadOnlyList<string> BlockedReasons, IReadOnlyList<string> Warnings);
+        PackageStatistics Statistics, IReadOnlyList<string> BlockedReasons, IReadOnlyList<string> Warnings);
 }

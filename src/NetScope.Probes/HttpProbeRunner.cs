@@ -72,11 +72,11 @@ public sealed class HttpProbeRunner : IProbeRunner
             && !cancellationToken.IsCancellationRequested
             && !string.IsNullOrWhiteSpace(plan.ObservationWindowId)
             && !string.IsNullOrWhiteSpace(plan.BootId)
-            && !string.IsNullOrWhiteSpace(plan.AddressFamily)
+            && ProbeFamilyPolicy.IsKnown(plan.AddressFamily)
             && IsValidTime(endedMonotonic) && endedMonotonic >= startedMonotonic
             && results.All(result => result.StartedMonotonicMs is { } time && IsValidTime(time)
                 && !result.TopologyChanged
-                && result.Status is EventStatus.Ok or EventStatus.Failed or EventStatus.Timeout)
+                && result.Status is EventStatus.Ok or EventStatus.Failed or EventStatus.Timeout or EventStatus.Unsupported)
             && results.Max(result => result.StartedMonotonicMs!.Value)
                 - results.Min(result => result.StartedMonotonicMs!.Value) <= ComparabilityWindow.TotalMilliseconds;
 
@@ -175,6 +175,9 @@ public sealed class HttpProbeRunner : IProbeRunner
                 OsErrorCode = outcome.OsErrorCode,
                 ResolutionLocation = outcome.ResolutionLocation ?? "unknown",
                 ResolvedAddresses = outcome.ResolvedAddresses,
+                ResolutionSource = outcome.ResolutionSource,
+                ResolvedAt = outcome.ResolvedAt,
+                Connection = outcome.Connection,
                 ProxyEndpointId = path == ProbePath.ExplicitHttpProxy ? plan.ProxyEndpointId : null,
                 ProxyStack = ProxyStackFor(path),
                 FailedStage = outcome.FailedStage,
@@ -182,12 +185,18 @@ public sealed class HttpProbeRunner : IProbeRunner
                 ProxyIsLocal = path == ProbePath.ExplicitHttpProxy
                     ? outcome.ProxyIsLocal ?? ProbeEndpointPolicy.IsLocal(plan.ExplicitProxyEndpoint) : null,
                 AddressFamily = plan.AddressFamily,
+                RequestedAddressFamily = outcome.RequestedAddressFamily
+                    ?? ProbeFamilyPolicy.Normalize(plan.AddressFamily),
+                LocalConnectionAddressFamily = outcome.LocalConnectionAddressFamily,
+                TargetAddressFamily = outcome.TargetAddressFamily,
+                TargetAddressFamilyStatus = outcome.TargetAddressFamilyStatus
+                    ?? DefaultTargetFamilyStatus(path, outcome.LocalConnectionAddressFamily),
                 Method = plan.Target.Method.ToUpperInvariant(),
                 RequestOptionsKey = optionsKey,
                 ObservationWindowId = plan.ObservationWindowId,
                 BootId = plan.BootId,
                 TimingComparable = false,
-                Notice = outcome.Notice ?? NoticeFor(path),
+                Notice = ComposeNotice(path, outcome.Notice),
             }, true, !userToken.IsCancellationRequested && budgetSource.IsCancellationRequested,
                 IsValidTime(endedMonotonic) && endedMonotonic >= startedMonotonic);
         }
@@ -263,6 +272,10 @@ public sealed class HttpProbeRunner : IProbeRunner
             FailedEndpoint = "unknown",
             ProxyIsLocal = path == ProbePath.ExplicitHttpProxy ? ProbeEndpointPolicy.IsLocal(plan.ExplicitProxyEndpoint) : null,
             AddressFamily = plan.AddressFamily,
+            RequestedAddressFamily = ProbeFamilyPolicy.Normalize(plan.AddressFamily),
+            LocalConnectionAddressFamily = null,
+            TargetAddressFamily = null,
+            TargetAddressFamilyStatus = ProbeTargetFamilyStatus.NotAttempted,
             Method = plan.Target?.Method?.ToUpperInvariant(),
             RequestOptionsKey = optionsKey,
             ObservationWindowId = plan.ObservationWindowId,
@@ -271,6 +284,15 @@ public sealed class HttpProbeRunner : IProbeRunner
             Notice = "No request was started for this path; nothing was measured. Reason: " + reason,
         };
     }
+
+    private static string DefaultTargetFamilyStatus(ProbePath path, string? localFamily) => path switch
+    {
+        ProbePath.NoExplicitProxy => localFamily is null
+            ? ProbeTargetFamilyStatus.UnknownAfterAttempt
+            : ProbeTargetFamilyStatus.Observed,
+        ProbePath.ExplicitHttpProxy => ProbeTargetFamilyStatus.UnknownThroughProxy,
+        _ => ProbeTargetFamilyStatus.UnknownSystemDefault,
+    };
 
     private static string? InvalidPlanReason(ProbeGroupPlan plan)
     {
@@ -305,6 +327,17 @@ public sealed class HttpProbeRunner : IProbeRunner
         _ => "unknown",
     };
 
+    /// <summary>
+    /// Keeps the transport's own measured notice and still states the path caveat. On the system
+    /// default path the transport notice already covers the whole caveat in more detail.
+    /// </summary>
+    private static string? ComposeNotice(ProbePath path, string? transportNotice)
+    {
+        var pathNotice = NoticeFor(path);
+        if (string.IsNullOrWhiteSpace(transportNotice)) return pathNotice;
+        return path == ProbePath.SystemDefault ? transportNotice : transportNotice + " " + pathNotice;
+    }
+
     private static string NoticeFor(ProbePath path) => path switch
     {
         ProbePath.NoExplicitProxy =>
@@ -317,3 +350,4 @@ public sealed class HttpProbeRunner : IProbeRunner
 
     private sealed record PathRun(ProbeResult Result, bool WasStarted, bool BudgetExhausted, bool TimingValid = true);
 }
+

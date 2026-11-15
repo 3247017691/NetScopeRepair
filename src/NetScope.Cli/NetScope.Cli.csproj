@@ -12,6 +12,7 @@
     <ProjectReference Include="..\NetScope.Collectors.Windows\NetScope.Collectors.Windows.csproj" />
     <ProjectReference Include="..\NetScope.Diagnostics\NetScope.Diagnostics.csproj" />
     <ProjectReference Include="..\NetScope.Domain\NetScope.Domain.csproj" />
+    <ProjectReference Include="..\NetScope.Maintenance\NetScope.Maintenance.csproj" />
     <ProjectReference Include="..\NetScope.Probes\NetScope.Probes.csproj" />
     <ProjectReference Include="..\NetScope.Storage\NetScope.Storage.csproj" />
   </ItemGroup>

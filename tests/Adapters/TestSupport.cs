@@ -167,26 +167,44 @@ internal static class Build
         int processId,
         string name,
         string? executablePath = null,
-        string? version = null) => new()
+        string? version = null,
+        int? parentProcessId = null,
+        DateTimeOffset? startTime = null) => new()
     {
         ProcessId = processId,
         Name = name,
         ExecutablePath = executablePath,
         Version = version,
-        StartTime = new DateTimeOffset(2026, 11, 5, 0, 0, 0, TimeSpan.Zero),
+        StartTime = startTime ?? new DateTimeOffset(2026, 11, 5, 0, 0, 0, TimeSpan.Zero),
+        ParentProcessId = parentProcessId,
+        UnreadableFields = executablePath is null
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [ObservationFieldNames.ExecutablePath] = "not_reported",
+                [ObservationFieldNames.Version] = "executable_path_unreadable",
+            }
+            : new Dictionary<string, string>(StringComparer.Ordinal),
     };
 
     public static ListenerObservation Listener(
         int port,
         int? ownerProcessId = null,
         string? host = "127.0.0.1",
-        string? ownerName = null) => new()
+        string? ownerName = null,
+        string addressFamily = "ipv4",
+        string? ownerReadState = null,
+        string? ownerReadReason = null,
+        DateTimeOffset? ownerInstanceStartTime = null) => new()
     {
         Protocol = "tcp",
+        AddressFamily = addressFamily,
         Host = host,
         Port = port,
         OwnerProcessId = ownerProcessId,
         OwnerProcessName = ownerName,
+        OwnerReadState = ownerReadState ?? (ownerProcessId is null ? "unreadable" : "read"),
+        OwnerReadReason = ownerReadReason ?? (ownerProcessId is null ? "owner_table_unreported" : null),
+        OwnerInstanceStartTime = ownerInstanceStartTime,
     };
 
     public static NetworkAdapterObservation Adapter(
@@ -194,14 +212,24 @@ internal static class Build
         string kind,
         string status,
         string? description = null,
-        params string[] addresses) => new()
+        params string[] addresses)
     {
-        Name = name,
-        Description = description,
-        Kind = kind,
-        OperationalStatus = status,
-        Addresses = addresses,
-    };
+        static bool IsV4(string value) => System.Net.IPAddress.TryParse(
+            value.Split('/')[0], out var address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork;
+        static bool IsV6(string value) => System.Net.IPAddress.TryParse(
+            value.Split('/')[0], out var address) && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
+
+        return new NetworkAdapterObservation
+        {
+            Name = name,
+            Description = description,
+            Kind = kind,
+            OperationalStatus = status,
+            Addresses = addresses,
+            Ipv4Addresses = addresses.Where(IsV4).ToArray(),
+            Ipv6Addresses = addresses.Where(IsV6).ToArray(),
+        };
+    }
 }
 
 internal static class EvidenceText

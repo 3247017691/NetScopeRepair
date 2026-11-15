@@ -27,30 +27,33 @@
 
                 <!-- Right: 3 KPI Micro-Blocks -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- KPI 1: 观察状态 -->
+                    <!-- KPI 1: 采集健康 -->
                     <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                            CornerRadius="6" Padding="14,10" MinWidth="110" Margin="0,0,10,0">
+                            CornerRadius="6" Padding="14,10" MinWidth="128" Margin="0,0,10,0">
                         <StackPanel>
-                            <TextBlock Text="观察状态" FontSize="11" Foreground="{StaticResource Muted}" />
-                            <TextBlock Text="{Binding StateText}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="0,4,0,0" />
+                            <TextBlock Text="采集健康（本机）" FontSize="11" Foreground="{StaticResource Muted}" />
+                            <TextBlock Text="{Binding CollectionHealthTitle}" FontSize="13.5" FontWeight="SemiBold"
+                                       Foreground="{Binding CollectionHealthTone}" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
 
-                    <!-- KPI 2: 最近快照 -->
+                    <!-- KPI 2: 网络验证 -->
                     <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                            CornerRadius="6" Padding="14,10" MinWidth="140" Margin="0,0,10,0">
+                            CornerRadius="6" Padding="14,10" MinWidth="150" Margin="0,0,10,0">
                         <StackPanel>
-                            <TextBlock Text="最近快照时间" FontSize="11" Foreground="{StaticResource Muted}" />
-                            <TextBlock Text="{Binding SnapshotText}" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="0,4,0,0" />
+                            <TextBlock Text="网络验证（外部探测）" FontSize="11" Foreground="{StaticResource Muted}" />
+                            <TextBlock Text="{Binding VerificationTitle}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{Binding VerificationTone}" Margin="0,4,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 
-                    <!-- KPI 3: 累计事件 -->
+                    <!-- KPI 3: 最近诊断时间 -->
                     <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                            CornerRadius="6" Padding="14,10" MinWidth="110">
+                            CornerRadius="6" Padding="14,10" MinWidth="150">
                         <StackPanel>
-                            <TextBlock Text="累计事实事件" FontSize="11" Foreground="{StaticResource Muted}" />
-                            <TextBlock Text="{Binding EventText}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="0,4,0,0" />
+                            <TextBlock Text="最近诊断时间" FontSize="11" Foreground="{StaticResource Muted}" />
+                            <TextBlock Text="{Binding DiagnosisTimeText}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Ink}" Margin="0,4,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -65,12 +68,12 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Left: 数据域完整性 -->
+            <!-- Left: 采集健康 -->
             <Border Grid.Column="0" Style="{StaticResource SectionCard}">
                 <StackPanel>
-                    <TextBlock Text="数据域完整性" Style="{StaticResource H2}" />
-                    <TextBlock Text="任何一个域没有读到，都会显示为采集中断，而不是空结果。" Style="{StaticResource Caption}"
-                               HorizontalAlignment="Left" Margin="0,4,0,14" />
+                    <TextBlock Text="采集健康（本机数据域）" Style="{StaticResource H2}" />
+                    <TextBlock Text="任何一个域没有读到，都会显示为采集中断，而不是空结果。只描述本机采集，不代表网络连通性。"
+                               Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,14" TextWrapping="Wrap" />
                     <ItemsControl ItemsSource="{Binding Domains}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -117,6 +120,30 @@
                                     <ColumnDefinition Width="80" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="观察状态" Foreground="{StaticResource Muted}" FontSize="12" />
+                                <TextBlock Grid.Column="1" Text="{Binding StateText}" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource Ink}" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="最近快照" Foreground="{StaticResource Muted}" FontSize="12" />
+                                <TextBlock Grid.Column="1" Text="{Binding SnapshotText}" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource Ink}" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="累计事件" Foreground="{StaticResource Muted}" FontSize="12" />
+                                <TextBlock Grid.Column="1" Text="{Binding EventText}" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource Ink}" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="日志写入" Foreground="{StaticResource Muted}" FontSize="12" />
                                 <TextBlock Grid.Column="1" Text="{Binding PersistenceText}" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource Ink}" />
                             </Grid>
@@ -154,14 +181,53 @@
             </Border>
         </Grid>
 
+        <!-- Network verification: what the last explicit probe actually showed -->
+        <Border Style="{StaticResource SectionCard}">
+            <StackPanel>
+                <DockPanel LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Text="网络验证（外部探测）" Style="{StaticResource H2}" />
+                </DockPanel>
+                <TextBlock Text="三条路径只有在同目标、同方法、同地址族、同观察窗口内才合并比较；缺失、Unsupported 与取消都不是通过。"
+                           Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,10" TextWrapping="Wrap" />
+
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                        CornerRadius="6" Padding="12,9" Margin="0,0,0,8">
+                    <TextBlock Text="{Binding VerificationPathsText}" FontSize="12" Foreground="{StaticResource Ink}"
+                               TextWrapping="Wrap" LineHeight="18" />
+                </Border>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
+                    <Ellipse Width="7" Height="7" Fill="{Binding VerificationTone}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                    <TextBlock Text="未配置探测目标时仍会运行本地规则诊断；0 条探测结果显示为“尚未进行外部验证”，不会转绿。"
+                               Style="{StaticResource Caption}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="820" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding VerificationDetail}" FontSize="12" Foreground="{StaticResource Ink}"
+                           TextWrapping="Wrap" LineHeight="19" />
+
+                <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
+                        CornerRadius="6" Padding="12,8" Margin="0,10,0,0">
+                    <TextBlock Text="{Binding VerificationBoundaryText}" FontSize="12" Foreground="{StaticResource Warn}"
+                               TextWrapping="Wrap" LineHeight="18" />
+                </Border>
+
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                        CornerRadius="6" Padding="12,8" Margin="0,8,0,0">
+                    <TextBlock Text="{Binding TargetText}" FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+        </Border>
+
         <!-- Bottom: 最近诊断 -->
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
                 <DockPanel LastChildFill="False">
                     <TextBlock DockPanel.Dock="Left" Text="最近诊断" Style="{StaticResource H2}" />
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding LastCycleText}" Style="{StaticResource Caption}"
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding DiagnosisTimeText}" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" />
                 </DockPanel>
+                <TextBlock Text="{Binding DiagnosisDetailText}" Style="{StaticResource Caption}" HorizontalAlignment="Left"
+                           Margin="0,4,0,0" TextWrapping="Wrap" />
                 <ItemsControl ItemsSource="{Binding RecentDiagnoses}" Margin="0,12,0,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -205,7 +271,7 @@
             <StackPanel>
                 <TextBlock Text="边界" Style="{StaticResource H2}" />
                 <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,6,0,0" LineHeight="18"
-                           Text="“当前样本正常”只说明本次采集的数据域完整、没有产生异常结论，不代表全网正常或浏览器已恢复。M1 没有任何修改系统网络设置的入口；修复能力属于 M3，并且必须先有证据、预览与用户授权。" />
+                           Text="采集健康只说明本机数据域是否读到；网络验证只说明已启用目标的探测结果；最近诊断时间只说明规则何时运行。三者互不替代：0 条探测显示“尚未进行外部验证”，空诊断不会转绿，也不代表全网正常或浏览器已恢复。M1 没有任何修改系统网络设置的入口；修复能力属于 M3，并且必须先有证据、预览与用户授权。" />
             </StackPanel>
         </Border>
 

@@ -29,7 +29,12 @@ public sealed class MultiSnapshotExportTests
         Assert.Equal(8, preview.EventCount); // two cycles x (snapshot + probe + record + diagnosis)
         Assert.Equal(2, preview.DiagnosisCount);
         Assert.Equal(2, preview.Files.Count(file => file.Name.StartsWith("snapshots/", StringComparison.Ordinal)));
-        Assert.Empty(preview.Warnings);
+        // The synthetic collector cannot read WinHTTP, so the separated completeness section must
+        // say so instead of pretending the capture is complete just because gaps is zero.
+        Assert.All(preview.Warnings, warning => Assert.Contains("incomplete data domains", warning));
+        Assert.DoesNotContain(preview.Warnings, warning =>
+            warning.Contains("probe results", StringComparison.Ordinal) ||
+            warning.Contains("mixes synthetic", StringComparison.Ordinal));
 
         var result = await exporter.ExportAsync(session, workspace.Subdirectory("packages"), CancellationToken.None);
         var entries = PackageReader.Read(result.PackagePath);

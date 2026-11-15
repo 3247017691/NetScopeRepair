@@ -30,7 +30,7 @@ internal static class RedactionCategories
     public static string Strategy(string category) => category switch
     {
         UserName => "stable per-package alias (user-XX, salt-keyed)",
-        DeviceName => "stable per-package alias (device-XX, salt-keyed)",
+        DeviceName => "stable per-package alias (device-XX, salt-keyed); includes interface names, descriptions, aliases, SSIDs and adapter/virtual-switch/filter names recognised in free text",
         LocalPath => "stable per-package alias (path-XX, salt-keyed)",
         PrivateHost => "stable per-package alias (private-host-XX, salt-keyed)",
         PublicTarget => "stable per-package alias (target-A, target-B, ...)",

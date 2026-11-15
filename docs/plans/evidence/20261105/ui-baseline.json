@@ -1,0 +1,87 @@
+{
+  "baseline_commit": "07c6f5addfb2468bc73f729fcfa80ad7e3241dd5",
+  "ui_head_commit": "a4b07a042d33746d664556933f562648ff1ba1e7",
+  "scope": "User UI changes to preserve; functional additions require minimal diffs and review, not blind hash freezing",
+  "files": [
+    {
+      "path": "src/NetScope.Desktop/CloseChoiceDialog.xaml",
+      "sha256": "73c350c2fce5df11e25dc99dee17dd7617ec6d3d1c6b22e016f3bddcc421b286"
+    },
+    {
+      "path": "src/NetScope.Desktop/MainWindow.xaml",
+      "sha256": "ed70f46fc5cc486d937860cb8df9420e846ffd1446bd5cedef54b486d1385585"
+    },
+    {
+      "path": "src/NetScope.Desktop/NetScope.Desktop.csproj",
+      "sha256": "3ea2566b2e4f73716f4a82987edf50604e7b5a0386d6a773bdf1c2c6aa6fe83b"
+    },
+    {
+      "path": "src/NetScope.Desktop/Resources/Theme.xaml",
+      "sha256": "f6572dbe4d966bfb4e0df852065ca8a7526de6073a52efe209d28dc8a7898b6c"
+    },
+    {
+      "path": "src/NetScope.Desktop/Resources/netscope-logo.png",
+      "sha256": "8e22d8e6002bfeaa86526f6a92b5521990d7f256b6de9b48c02a4fb5e3a6b696"
+    },
+    {
+      "path": "src/NetScope.Desktop/Resources/netscope.ico",
+      "sha256": "1d8c9f39f7a89bf0149b2e25dd0128aac2df6a8ac6a7b8f61ef485fe721d7915"
+    },
+    {
+      "path": "src/NetScope.Desktop/Services/TrayController.cs",
+      "sha256": "8a886383d4869eb760540a221f1f94c548bfdcfa112fcae57e8f861fbb25c6ed"
+    },
+    {
+      "path": "src/NetScope.Desktop/ViewModels/MainViewModel.cs",
+      "sha256": "e48e81af2987376f9fd7c37c9a804c2321c96a940b93e2d9358b1372564f30e5"
+    },
+    {
+      "path": "src/NetScope.Desktop/ViewModels/Rows.cs",
+      "sha256": "2fc4b95ff45cf26c58a0db5b5af64289fa3de5f95d66eee61e15b475287260bf"
+    },
+    {
+      "path": "src/NetScope.Desktop/ViewModels/SettingsViewModel.cs",
+      "sha256": "ac7af10df46d65ca583566b209d3d340a94a04c59409b7cc2831395560483d1f"
+    },
+    {
+      "path": "src/NetScope.Desktop/Views/ClientsView.xaml",
+      "sha256": "40d56ce4b11064d84419a0c185ac320a719a0051e6c020f6e90b7cbc9fa8c645"
+    },
+    {
+      "path": "src/NetScope.Desktop/Views/DiagnosesView.xaml",
+      "sha256": "af4e2b0506d9417d3f56446bbdc967f6ecd2a6aae4a0335eb66f4228013b46ad"
+    },
+    {
+      "path": "src/NetScope.Desktop/Views/ExportView.xaml",
+      "sha256": "12acb05a7959f48b9ede1fad643039d588a48bbb5ef12a5ac1911a5bfa38f9ce"
+    },
+    {
+      "path": "src/NetScope.Desktop/Views/HelpView.xaml",
+      "sha256": "2acd78dbf8c7d87acde8f634d2983109d8a879ce393ddbd5908d5268b614478a"
+    },
+    {
+      "path": "src/NetScope.Desktop/Views/HomeView.xaml",
+      "sha256": "bf85721d08a9c3ebf451ae7db0220c530a4570a0985f4d0f31b914721036fb0a"
+    },
+    {
+      "path": "src/NetScope.Desktop/Views/SettingsView.xaml",
+      "sha256": "b26c15b6f037a237f15be9b9ddd3060f5c7fc28df87d77745f75824da26482ff"
+    },
+    {
+      "path": "src/NetScope.Desktop/Views/ShellView.xaml",
+      "sha256": "02116c76e443cded25805a0c3665d72ee26f059e8917cd8a5cf9ebfc7fda63a7"
+    },
+    {
+      "path": "src/NetScope.Desktop/Views/TimelineView.xaml",
+      "sha256": "88da2af2b9845f1e2d7dd9ce4bb24691da910b92306b4f5708bcf67022ebe344"
+    },
+    {
+      "path": "tests/Desktop/SessionLifecycleTests.cs",
+      "sha256": "f09b4160ed412eaea79ac279823ebb6ef92e037460a2d47cab01bd7e8f88c115"
+    },
+    {
+      "path": "运行NetScope只读试用版.cmd",
+      "sha256": "bec681a43899fe01d0db45e99bf79450d4c8102a882b1d55816d9f17bedd373d"
+    }
+  ]
+}

@@ -41,7 +41,28 @@ public sealed record TransportOutcome
 
     public string? ResolutionLocation { get; init; }
 
+    /// <summary>Provenance of the local resolution sample, for example "system-dns"; null when unknown.</summary>
+    public string? ResolutionSource { get; init; }
+
+    /// <summary>UTC time of the local resolution that fed the connection; null when none was observed.</summary>
+    public DateTimeOffset? ResolvedAt { get; init; }
+
+    /// <summary>What this attempt really proved about its TCP connection; null when it observed nothing.</summary>
+    public ProbeConnectionFact? Connection { get; init; }
+
     public string? Notice { get; init; }
+
+    /// <summary>Normalized request policy family: any / ipv4 / ipv6.</summary>
+    public string? RequestedAddressFamily { get; init; }
+
+    /// <summary>Family of the TCP connection this process really made; null when not observed.</summary>
+    public string? LocalConnectionAddressFamily { get; init; }
+
+    /// <summary>Proven target family; only a local dial of the target can prove it.</summary>
+    public string? TargetAddressFamily { get; init; }
+
+    /// <summary>observed / unknown_through_proxy / unknown_system_default / unknown_after_attempt / not_attempted.</summary>
+    public string? TargetAddressFamilyStatus { get; init; }
 
     /// <summary>Proven failing connection endpoint: proxy / target / unknown.</summary>
     public string? FailedEndpoint { get; init; }
@@ -76,3 +97,4 @@ public interface IProbeTransport
 {
     Task<TransportOutcome> SendAsync(ProbeRequest request, CancellationToken cancellationToken);
 }
+

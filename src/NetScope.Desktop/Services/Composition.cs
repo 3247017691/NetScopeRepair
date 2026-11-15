@@ -16,7 +16,8 @@ public sealed class AppServices : IDisposable
         AppSettings settings,
         IClock clock,
         ObservationSession session,
-        HttpProbeTransport transport)
+        HttpProbeTransport transport,
+        IRepairGateway? repair = null)
     {
         Paths = paths;
         SettingsStore = settingsStore;
@@ -24,6 +25,7 @@ public sealed class AppServices : IDisposable
         Clock = clock;
         Session = session;
         Transport = transport;
+        Repair = repair ?? new UnavailableRepairGateway();
     }
 
     public AppPaths Paths { get; }
@@ -40,6 +42,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>T08. Null until the export implementation is wired.</summary>
     public IIncidentExporter? Exporter { get; set; }
+
+    /// <summary>T16 repair gateway; the delivery default is unavailable and never writes.</summary>
+    public IRepairGateway Repair { get; }
 
     /// <summary>T09. Null until adapters are wired.</summary>
     public IClientStatusProvider? Clients { get; set; }
@@ -67,8 +72,27 @@ public static class Composition
         ISnapshotCollector collector = synthetic
             ? new NetScope.Application.Mock.SyntheticSnapshotCollector()
             : new NetScope.Collectors.Windows.WindowsSnapshotCollector();
-        var session = new ObservationSession(collector, probes, clock, resolvedPaths, synthetic);
-        var services = new AppServices(resolvedPaths, settingsStore, settings, clock, session, transport)
+
+        // One evidence source is shared by every observation entry of this process. It reads the
+        // same adapter seams the clients page uses, but in its own cycle: a page refresh is never
+        // spliced into another cycle's evidence. Synthetic sessions stay a deliberate reduced
+        // composition; the demo session itself is produced by SyntheticShowcase.
+        NetScope.Adapters.AdapterComposition? adapters = synthetic
+            ? null
+            : NetScope.Adapters.AdaptersHost.CreateDefault();
+        var session = new ObservationSession(collector, probes, clock, resolvedPaths, synthetic,
+            evidenceSource: adapters?.Evidence);
+        IRepairGateway repair = synthetic
+            ? new PreviewOnlyRepairGateway(new SyntheticRepairPreviewSource(() => DateTimeOffset.UtcNow), new RepairGateView
+            {
+                Enabled = false,
+                Text = "执行入口已禁用（Disabled）",
+                Reasons = UnavailableRepairGateway.DeliveryReasons
+                    .Concat(new[] { "合成演示计划：不是本机观测，也不是可执行计划。" })
+                    .ToArray(),
+            })
+            : new UnavailableRepairGateway();
+        var services = new AppServices(resolvedPaths, settingsStore, settings, clock, session, transport, repair)
         {
             Exporter = new NetScope.Storage.Export.IncidentExporter(),
         };
@@ -80,11 +104,11 @@ public static class Composition
         }
         else
         {
-            var adapters = NetScope.Adapters.AdaptersHost.CreateDefault();
-            services.Clients = adapters.ClientStatus;
+            services.Clients = adapters!.ClientStatus;
             services.Explanations = adapters.Dependencies;
         }
 
         return services;
     }
 }
+

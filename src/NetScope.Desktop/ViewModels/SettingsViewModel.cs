@@ -12,6 +12,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private readonly SettingsStore _store;
     private readonly Action<AppSettings> _applied;
     private string _intervalSeconds = "10";
+    private string _targetId = "target-user-configured";
     private string _targetEndpoint = "";
     private string _expectedStatus = "204";
     private string _explicitProxy = "";
@@ -39,11 +40,24 @@ public sealed class SettingsViewModel : ViewModelBase
         set => Set(ref _intervalSeconds, value);
     }
 
+    /// <summary>Editable target profile id. Saving it never contacts the endpoint.</summary>
+    public string TargetId
+    {
+        get => _targetId;
+        set => Set(ref _targetId, value);
+    }
+
     public string TargetEndpoint
     {
         get => _targetEndpoint;
         set => Set(ref _targetEndpoint, value);
     }
+
+    public string MethodText => "GET（固定；三路径共用同一方法）";
+
+    public string TargetProfileCaption =>
+        "目标档案只在本机保存：目标 ID、URL、期望状态码、地址族与显式代理。保存或打开设置都不会发起任何请求；"
+        + "只有回到首页手动点击“立即诊断”才会按该档案发起外部验证。";
 
     public string ExpectedStatus
     {
@@ -67,9 +81,21 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
-    public string FamilyNotice => FamilyIndex == 0
-        ? "跟随系统默认栈；不强制地址族。"
-        : "M1 的真实传输不强制地址族：选择后会诚实返回“不支持”，不会伪造 IPv4/IPv6 结果。";
+    /// <summary>
+    /// Only the no-explicit-proxy path can force and prove a family. The proxy and system paths
+    /// are reported as an Unsupported/unknown gap with the T04-R2 reason codes, never as success.
+    /// </summary>
+    public string FamilyNotice => FamilyIndex switch
+    {
+        0 => "跟随系统：未指定地址族，三条路径都不产生族能力结论；只有“无显式代理”路径可以强制族，"
+             + "代理/系统默认路径会以 Unsupported/未知缺口表达，且生产方不会确认三路径时间可比。",
+        1 => "IPv4：无显式代理路径会强制 IPv4（真实 socket）；显式 HTTP 代理返回 Unsupported 缺口"
+             + "（address_family_not_enforced_through_proxy）；系统默认路径记为未知"
+             + "（address_family_unknown_for_system_default）。",
+        _ => "IPv6：无显式代理路径会强制 IPv6（真实 socket）；显式 HTTP 代理返回 Unsupported 缺口"
+             + "（address_family_not_enforced_through_proxy）；系统默认路径记为未知"
+             + "（address_family_unknown_for_system_default）。",
+    };
 
     /// <summary>
     /// 0 = 每次关闭窗口时询问 (null), 1 = 隐藏到托盘继续观察 (true), 2 = 直接退出并停止采集 (false)
@@ -114,6 +140,7 @@ public sealed class SettingsViewModel : ViewModelBase
         try
         {
             IntervalSeconds = ((int)settings.ObservationInterval.TotalSeconds).ToString();
+            TargetId = string.IsNullOrWhiteSpace(settings.ProbeTargetId) ? "target-user-configured" : settings.ProbeTargetId;
             TargetEndpoint = settings.ProbeTargetEndpoint;
             ExpectedStatus = settings.ExpectedStatus.ToString();
             ExplicitProxy = settings.ExplicitProxyEndpoint ?? "";
@@ -178,6 +205,19 @@ public sealed class SettingsViewModel : ViewModelBase
             }
         }
 
+        var targetId = TargetId.Trim();
+        if (targetId.Length == 0)
+        {
+            error = "目标档案 ID 不能为空；它只用于本地区分观察结论。";
+            return false;
+        }
+
+        if (targetId.Length > 80 || targetId.Any(char.IsControl))
+        {
+            error = "目标档案 ID 需为 1—80 个字符，且不能包含控制字符。";
+            return false;
+        }
+
         var proxy = ExplicitProxy.Trim();
         if (proxy.Length > 0
             && (!Uri.TryCreate(proxy, UriKind.Absolute, out var proxyUri)
@@ -193,6 +233,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings = new AppSettings
         {
             ObservationInterval = TimeSpan.FromSeconds(seconds),
+            ProbeTargetId = targetId,
             ProbeTargetEndpoint = target,
             ExpectedStatus = status,
             ExplicitProxyEndpoint = proxy.Length == 0 ? null : proxy,
@@ -219,7 +260,8 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             _store.Save(settings);
             _applied(settings);
-            StatusMessage = "设置已保存；观察间隔将在下次开始观察时生效。没有改动任何网络配置。";
+            StatusMessage = "设置已保存；观察间隔将在下次开始观察时生效。保存设置没有发起任何请求，"
+                + "也没有改动任何网络配置。";
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

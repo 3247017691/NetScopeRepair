@@ -119,52 +119,7 @@ public sealed class NdjsonEventLog : IEventStore, IDisposable
             throw new InvalidDataException("Event logs must use UTF-8; append refused before changing the existing file.");
     }
 
-    private static EventLogReadResult Parse(string text)
-    {
-        var events = new List<EventEnvelope>();
-        var problems = new List<EventLogProblem>();
-        var gaps = new List<SequenceGap>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var duplicates = 0;
-        int? previousSequence = null;
-        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
-        var lastContentIndex = Array.FindLastIndex(lines, line => !string.IsNullOrWhiteSpace(line));
-        var terminated = text.EndsWith('\n') || text.EndsWith('\r');
-        for (var index = 0; index < lines.Length; index++)
-        {
-            var raw = lines[index].Trim();
-            if (raw.Length == 0) continue;
-            var syntaxValid = false;
-            EventEnvelope envelope;
-            try
-            {
-                using var document = JsonDocument.Parse(raw);
-                syntaxValid = true;
-                envelope = EnvelopeJson.Deserialize(raw);
-            }
-            catch (JsonException exception)
-            {
-                problems.Add(new EventLogProblem(index + 1,
-                    "The event could not be read: " + exception.Message,
-                    IsTruncatedTail: !syntaxValid && index == lastContentIndex && !terminated));
-                continue;
-            }
-            if (!seen.Add(envelope.EventId)) { duplicates++; continue; }
-            if (previousSequence is null && envelope.Sequence > 1)
-                gaps.Add(new SequenceGap(1, envelope.Sequence));
-            else if (previousSequence is not null)
-            {
-                if ((long)envelope.Sequence > (long)previousSequence.Value + 1)
-                    gaps.Add(new SequenceGap(previousSequence.Value + 1, envelope.Sequence));
-                else if (envelope.Sequence <= previousSequence.Value)
-                    problems.Add(new EventLogProblem(index + 1,
-                        $"sequence {envelope.Sequence} is not greater than the previous {previousSequence.Value}", false));
-            }
-            previousSequence = envelope.Sequence;
-            events.Add(envelope);
-        }
-        return new EventLogReadResult { Events = events, Problems = problems, SequenceGaps = gaps, DuplicateCount = duplicates };
-    }
+    internal static EventLogReadResult Parse(string text) => EventLogParser.Parse(text);
 
     public void Dispose()
     {

@@ -22,7 +22,7 @@ public sealed class GenericAdapterTests
 
         var statuses = await adapter.ReadAsync(CancellationToken.None);
 
-        Assert.Equal(2, statuses.Count);
+        Assert.Equal(2, statuses.Count(status => status.ClientId is KnownClientIds.Nice or KnownClientIds.Apex));
         var nice = Status(statuses, KnownClientIds.Nice);
         Assert.True(nice.Running);
         Assert.Equal("1.2.3", nice.Version);
@@ -180,7 +180,7 @@ public sealed class GenericAdapterTests
     }
 
     [Fact]
-    public async Task Tun_adapter_presence_is_reported_without_claiming_ownership()
+    public async Task Tun_candidate_is_a_machine_level_fact_and_never_each_clients_own_tun()
     {
         var adapters = new FakeNetworkAdapterSource
         {
@@ -193,17 +193,22 @@ public sealed class GenericAdapterTests
 
         var statuses = await adapter.ReadAsync(CancellationToken.None);
 
-        foreach (var status in statuses)
+        var system = Status(statuses, KnownClientIds.SystemTun);
+        Assert.True(system.TunEnabled);
+        Assert.Equal("Meta Tunnel", Assert.Single(system.TunCandidates).Name);
+        Assert.Contains("IPv4 198.18.0.1/16", system.TunAddress!, StringComparison.Ordinal);
+        Assert.Contains(system.Notes, note => note.Contains("归属未确认", StringComparison.Ordinal));
+        foreach (var clientId in new[] { KnownClientIds.Nice, KnownClientIds.Apex })
         {
-            Assert.True(status.TunEnabled);
-            Assert.Equal("198.18.0.1/16", status.TunAddress);
-            Assert.Contains(status.Notes, note => note.Contains("TUN 候选", StringComparison.Ordinal));
-            Assert.Contains(status.Notes, note => note.Contains("不等于由该客户端创建", StringComparison.Ordinal));
+            var client = Status(statuses, clientId);
+            Assert.Null(client.TunEnabled);
+            Assert.Equal("unconfirmed", client.TunOwnership);
+            Assert.Contains(client.Notes, note => note.Contains("TUN 归属未确认", StringComparison.Ordinal));
         }
     }
 
     [Fact]
-    public async Task No_tun_candidate_is_false_when_the_adapter_list_is_readable()
+    public async Task No_tun_candidate_is_false_on_the_system_row_when_the_adapter_list_is_readable()
     {
         var adapters = new FakeNetworkAdapterSource
         {
@@ -214,9 +219,14 @@ public sealed class GenericAdapterTests
 
         var statuses = await adapter.ReadAsync(CancellationToken.None);
 
-        Assert.All(statuses, status => Assert.False(status.TunEnabled));
-        Assert.All(statuses, status => Assert.Null(status.TunAddress));
-        Assert.Contains(statuses, status => status.Notes.Any(note => note.Contains("未观测到启用的 TUN", StringComparison.Ordinal)));
+        var system = Status(statuses, KnownClientIds.SystemTun);
+        Assert.False(system.TunEnabled);
+        Assert.Null(system.TunAddress);
+        Assert.Empty(system.TunCandidates);
+        Assert.Contains(system.Notes, note => note.Contains("未观测到启用的 TUN", StringComparison.Ordinal));
+        Assert.All(
+            statuses.Where(status => status.ClientId is KnownClientIds.Nice or KnownClientIds.Apex),
+            status => Assert.Null(status.TunEnabled));
     }
 
     [Fact]
@@ -281,7 +291,7 @@ public sealed class GenericAdapterTests
 
         var statuses = await adapter.ReadAsync(CancellationToken.None);
 
-        foreach (var status in statuses)
+        foreach (var status in statuses.Where(item => item.ClientId is KnownClientIds.Nice or KnownClientIds.Apex))
         {
             Assert.Contains(status.Notes, note => note.Contains("端点并存", StringComparison.Ordinal));
             Assert.Contains(status.Notes, note => note.Contains("不判定冲突", StringComparison.Ordinal));

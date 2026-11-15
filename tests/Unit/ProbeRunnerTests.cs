@@ -122,7 +122,7 @@ public sealed class ProbeRunnerTests
         var transport = new FakeTransport((_, _) => Task.FromResult(new TransportOutcome
         {
             Status = EventStatus.Unsupported,
-            TransportError = "address_family_not_enforced",
+            TransportError = "unsupported_address_family",
         }));
 
         var result = await Runner(transport).RunAsync(ProbePlans.Default(), CancellationToken.None);

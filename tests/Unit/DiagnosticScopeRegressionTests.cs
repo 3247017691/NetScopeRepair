@@ -284,7 +284,7 @@ public sealed class DiagnosticScopeRegressionTests
         ProbeResult Remove(ProbeResult probe) => missing switch
         {
             "endpoint" => probe with { ProxyEndpointId = null },
-            "family" => probe with { AddressFamily = null },
+            "family" => probe with { AddressFamily = "carrier-pigeon" },
             "method" => probe with { Method = null },
             "options" => probe with { RequestOptionsKey = null },
             "window" => probe with { ObservationWindowId = null },
@@ -452,3 +452,4 @@ public sealed class DiagnosticScopeRegressionTests
         _ => throw new ArgumentOutOfRangeException(nameof(difference)),
     };
 }
+

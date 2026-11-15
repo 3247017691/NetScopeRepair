@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Security;
 using Microsoft.Win32;
@@ -38,17 +39,24 @@ public sealed class WindowsInterfaceSource : IInterfaceSource
                     // Filter-driver miniports are reported by the platform with no index and no
                     // address. They cannot be correlated with any route, so they are not
                     // presented as interfaces; the count is reported instead of hidden.
-                    if (described.IfIndex <= 0 && described.Addresses.Count == 0)
+                    if (described.Rows.Count == 0)
                     {
-                        errors.Add($"{SafeName(nic)}: an entry with neither an interface index nor an address was skipped. "
-                            + described.Reason);
+                        errors.Add($"{SafeName(nic)}: an entry with neither an interface index nor an address was skipped.");
+                        foreach (var error in described.Errors)
+                        {
+                            errors.Add($"{SafeName(nic)}: {error}");
+                        }
+
                         continue;
                     }
 
-                    items.Add(described);
-                    if (described.Reason is not null)
+                    foreach (var row in described.Rows)
                     {
-                        errors.Add($"{SafeName(nic)}: {described.Reason}");
+                        items.Add(row);
+                        if (row.Reason is not null)
+                        {
+                            errors.Add($"{SafeName(nic)}: {row.Reason}");
+                        }
                     }
                 }
                 catch (Exception exception) when (WindowsReadFailure.IsExpected(exception))
@@ -84,60 +92,174 @@ public sealed class WindowsInterfaceSource : IInterfaceSource
         return Task.FromResult(Collected<IReadOnlyList<InterfaceState>>.Ok(items));
     }
 
-    private InterfaceState Describe(IWindowsAdapter nic)
+    private InterfaceDescription Describe(IWindowsAdapter nic)
     {
         var properties = nic.ReadInterfaceConfiguration();
-        var ipv4Index = properties.Ipv4Index.GetValueOrDefault();
-        var ipv6Index = properties.Ipv6Index.GetValueOrDefault();
-        var family = ipv4Index > 0 ? NativeNetworkApi.AfInet
-            : ipv6Index > 0 ? NativeNetworkApi.AfInet6 : NativeNetworkApi.AfUnspec;
-        var index = family == NativeNetworkApi.AfInet ? ipv4Index
-            : family == NativeNetworkApi.AfInet6 ? ipv6Index : 0;
-        var gaps = new List<string>(properties.Errors);
+        var ipv4Addresses = new List<string>();
+        var ipv6Addresses = new List<string>();
+        var unclassifiedAddresses = new List<string>();
+
+        foreach (var address in properties.Addresses)
+        {
+            var slash = address.IndexOf('/');
+            var addressText = slash >= 0 ? address[..slash] : address;
+            if (IPAddress.TryParse(addressText, out var parsed)
+                && parsed.AddressFamily is System.Net.Sockets.AddressFamily.InterNetwork
+                    or System.Net.Sockets.AddressFamily.InterNetworkV6)
+            {
+                if (parsed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    ipv4Addresses.Add(address);
+                }
+                else
+                {
+                    ipv6Addresses.Add(address);
+                }
+            }
+            else
+            {
+                unclassifiedAddresses.Add(address);
+            }
+        }
+
+        var commonGaps = new List<string>(properties.Errors);
+        if (unclassifiedAddresses.Count > 0)
+        {
+            commonGaps.Add($"address_family_unclassified: {unclassifiedAddresses.Count} address(es) could not be classified by family.");
+        }
+
+        var rows = new List<InterfaceState>();
+        var hasIpv4Index = properties.Ipv4Index is > 0;
+        var hasIpv6Index = properties.Ipv6Index is > 0;
+        var hasIpv4Address = ipv4Addresses.Count > 0;
+        var hasIpv6Address = ipv6Addresses.Count > 0;
+
+        if (!hasIpv4Index && !hasIpv6Index)
+        {
+            if (properties.Addresses.Count == 0)
+            {
+                return new InterfaceDescription(rows, commonGaps);
+            }
+
+            if (hasIpv4Address && hasIpv6Address)
+            {
+                // Both address families are visible even though neither scalar index was
+                // readable. Keep one honest gap row per family instead of merging them.
+                rows.Add(DescribeFamily(nic, "ipv4", NativeNetworkApi.AfInet, null, ipv4Addresses, commonGaps));
+                rows.Add(DescribeFamily(nic, "ipv6", NativeNetworkApi.AfInet6, null, ipv6Addresses, commonGaps));
+                return new InterfaceDescription(rows, commonGaps);
+            }
+
+            // One address family without any index: keep one explicitly unknown row. Do not
+            // promote a family from an address, because the scalar facts belong to an index.
+            var unknownGaps = new List<string>(commonGaps)
+            {
+                "interface_index_unavailable: the interface index could not be read.",
+            };
+            rows.Add(CreateRow(nic, "unknown", 0, properties.Addresses, null, unknownGaps));
+            return new InterfaceDescription(rows, commonGaps);
+        }
+
+        if (hasIpv4Index || hasIpv4Address)
+        {
+            rows.Add(DescribeFamily(
+                nic,
+                "ipv4",
+                NativeNetworkApi.AfInet,
+                properties.Ipv4Index,
+                ipv4Addresses,
+                commonGaps));
+        }
+
+        if (hasIpv6Index || hasIpv6Address)
+        {
+            rows.Add(DescribeFamily(
+                nic,
+                "ipv6",
+                NativeNetworkApi.AfInet6,
+                properties.Ipv6Index,
+                ipv6Addresses,
+                commonGaps));
+        }
+
+        return new InterfaceDescription(rows, commonGaps);
+    }
+
+    /// <summary>
+    /// Reads scalar facts for exactly one interface+family. A metric failure for one family is
+    /// recorded on that row; it is never replaced by the other family's successful read.
+    /// </summary>
+    private InterfaceState DescribeFamily(
+        IWindowsAdapter nic,
+        string family,
+        ushort nativeFamily,
+        int? familyIndex,
+        IReadOnlyList<string> addresses,
+        IReadOnlyList<string> commonGaps)
+    {
+        var index = familyIndex is > 0 ? familyIndex.Value : 0;
+        var gaps = new List<string>(commonGaps);
         NativeNetworkApi.InterfaceMetrics? metrics = null;
 
-        // The scalar facts belong to this selected family and index. Reading another family
-        // after a failure would silently attribute its metric and flags to the selected row.
         if (index > 0)
         {
-            var observed = _native.ReadInterfaceMetrics(index, family);
+            var observed = _native.ReadInterfaceMetrics(index, nativeFamily);
             if (observed.HasValue)
             {
                 metrics = observed.Value;
             }
+
             if (observed.Status != EventStatus.Ok || metrics is null)
             {
-                gaps.Add(observed.Reason ?? $"The metric for interface {index}, family {family} could not be fully read.");
+                gaps.Add($"{family}_interface_metrics_unavailable: "
+                    + (observed.Reason ?? $"The metric for interface {index}, family {nativeFamily} could not be fully read."));
             }
         }
         else
         {
-            gaps.Add("The interface index could not be read.");
+            gaps.Add($"{family}_interface_index_unavailable: the {family} interface index could not be read.");
         }
 
         int? metric = metrics is not null && metrics.Metric <= int.MaxValue ? (int)metrics.Metric : null;
         if (metrics is not null && metric is null)
         {
-            gaps.Add("The interface metric exceeds the supported numeric range.");
+            gaps.Add($"{family}_interface_metric_out_of_range: the interface metric exceeds the supported numeric range.");
         }
 
+        return CreateRow(nic, family, index, addresses, metrics, gaps, metric);
+    }
+
+    private static InterfaceState CreateRow(
+        IWindowsAdapter nic,
+        string family,
+        int index,
+        IReadOnlyList<string> addresses,
+        NativeNetworkApi.InterfaceMetrics? metrics,
+        IReadOnlyList<string> gaps,
+        int? metric = null)
+    {
+        var distinctGaps = gaps.Distinct(StringComparer.Ordinal).ToArray();
         return new InterfaceState
         {
             InterfaceGuid = nic.Id,
             Name = nic.Name,
             IfIndex = index,
-            Family = family == NativeNetworkApi.AfInet ? "ipv4" : family == NativeNetworkApi.AfInet6 ? "ipv6" : "unknown",
+            Family = family,
             Description = nic.Description,
             Kind = KindOf(nic.Type),
             OperationalStatus = nic.OperationalStatus.ToString().ToLowerInvariant(),
-            Addresses = properties.Addresses,
-            Metric = metric,
+            Addresses = addresses,
+            Metric = metric ?? (metrics is not null && metrics.Metric <= int.MaxValue ? (int)metrics.Metric : null),
             AutomaticMetric = metrics?.AutomaticMetric,
             DisableDefaultRoutes = metrics?.DisableDefaultRoutes,
             Luid = metrics?.Luid.ToString("x16"),
-            Reason = gaps.Count == 0 ? null : string.Join(" ", gaps),
+            Reason = distinctGaps.Length == 0 ? null : string.Join(" ", distinctGaps),
         };
     }
+
+    private sealed record InterfaceDescription(
+        IReadOnlyList<InterfaceState> Rows,
+        IReadOnlyList<string> Errors);
 
     /// <summary>Maps the platform enum onto the small vocabulary the rules understand.</summary>
     public static string KindOf(NetworkInterfaceType type) => type switch

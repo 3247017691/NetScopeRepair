@@ -20,6 +20,36 @@ internal static class DiagnosticComparability
 
     public static bool KnownFamily(string? value) => value is "ipv4" or "ipv6";
 
+    /// <summary>R1-B: a requested policy is any / ipv4 / ipv6; the null family means no constraint.</summary>
+    public static bool KnownPolicy(string? value)
+    {
+        var normalized = ProbeFamilyPolicy.Normalize(value);
+        return normalized is "any" or "ipv4" or "ipv6";
+    }
+
+    public static string RequestedPolicy(ProbeResult probe) => ProbeFamilyPolicy.Normalize(
+        probe.RequestedAddressFamily ?? probe.AddressFamily);
+
+    /// <summary>
+    /// The target family is only proven when the producer observed it. Legacy events (no R1-B
+    /// fields at all) keep their old AddressFamily reading as an explicit migration fallback.
+    /// </summary>
+    public static string? TargetFamily(ProbeResult probe)
+    {
+        if (PresentationHasR1BFields(probe)) return probe.TargetAddressFamily;
+        return KnownFamily(probe.AddressFamily) ? probe.AddressFamily : null;
+    }
+
+    /// <summary>Family of the real local socket; legacy events fall back to the old raw field.</summary>
+    public static string? ConnectionFamily(ProbeResult probe)
+    {
+        if (PresentationHasR1BFields(probe)) return probe.LocalConnectionAddressFamily;
+        return KnownFamily(probe.AddressFamily) ? probe.AddressFamily : null;
+    }
+
+    private static bool PresentationHasR1BFields(ProbeResult probe) =>
+        probe.RequestedAddressFamily is not null || probe.TargetAddressFamilyStatus is not null;
+
     public static bool Trusted(EvidenceRecord record) =>
         record.Status == EventStatus.Ok && !record.IsUserReport
         && Present(record.Source) && Present(record.Provenance);
@@ -28,7 +58,7 @@ internal static class DiagnosticComparability
         && record.Provenance is "runtime_api" or "runtime-api";
 
     public static bool Complete(ProbeResult probe) =>
-        Present(probe.TargetId) && KnownFamily(probe.AddressFamily) && Present(probe.Method)
+        Present(probe.TargetId) && KnownPolicy(RequestedPolicy(probe)) && Present(probe.Method)
         && Present(probe.RequestOptionsKey) && Present(probe.ObservationWindowId) && Present(probe.BootId)
         && Monotonic(probe.StartedMonotonicMs) && ValidDuration(probe)
         && (probe.Path == ProbePath.NoExplicitProxy || Present(probe.ProxyEndpointId));
@@ -41,7 +71,7 @@ internal static class DiagnosticComparability
         && !left.TopologyChanged && !right.TopologyChanged
         && Same(left.TargetId, right.TargetId) && left.Path == right.Path
         && string.Equals(left.ProxyEndpointId, right.ProxyEndpointId, StringComparison.Ordinal)
-        && Same(left.AddressFamily, right.AddressFamily) && Same(left.Method, right.Method)
+        && string.Equals(RequestedPolicy(left), RequestedPolicy(right), StringComparison.Ordinal) && Same(left.Method, right.Method)
         && Same(left.RequestOptionsKey, right.RequestOptionsKey)
         && Same(left.ObservationWindowId, right.ObservationWindowId) && Same(left.BootId, right.BootId)
         && Close(left.StartedAt, left.StartedMonotonicMs, right.StartedAt, right.StartedMonotonicMs, MaximumWindowMs);
@@ -53,7 +83,7 @@ internal static class DiagnosticComparability
 
     public static bool SameRecordProbeWindow(EvidenceRecord record, ProbeResult probe) =>
         Same(record.ObservationWindowId, probe.ObservationWindowId) && Same(record.BootId, probe.BootId)
-        && KnownFamily(record.AddressFamily) && Same(record.AddressFamily, probe.AddressFamily)
+        && KnownFamily(record.AddressFamily) && Same(record.AddressFamily, ConnectionFamily(probe))
         && record.ObservedAt.HasValue
         && Close(record.ObservedAt.Value, record.MonotonicMs, probe.StartedAt, probe.StartedMonotonicMs, ContemporaneousMs);
 
@@ -83,7 +113,7 @@ internal static class DiagnosticComparability
             ProbeGroupId = items.All(probe => Same(probe.ProbeGroupId, first.ProbeGroupId)) ? first.ProbeGroupId : null,
             TargetId = first.TargetId,
             Path = first.Path,
-            AddressFamily = first.AddressFamily,
+            AddressFamily = RequestedPolicy(first),
             ProxyEndpointId = first.ProxyEndpointId,
             ObservationWindowId = first.ObservationWindowId,
             BootId = first.BootId,
@@ -120,3 +150,4 @@ internal static class DiagnosticComparability
     public static string EndpointFamily(string endpoint) =>
         IPEndPoint.Parse(endpoint).Address.AddressFamily == AddressFamily.InterNetwork ? "ipv4" : "ipv6";
 }
+

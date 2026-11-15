@@ -22,6 +22,8 @@ internal sealed record BuiltIncidentPackage
     public required DateTimeOffset StartedAt { get; init; }
 
     public required DateTimeOffset EndedAt { get; init; }
+
+    public required PackageStatistics Statistics { get; init; }
 }
 
 /// <summary>
@@ -34,7 +36,12 @@ internal static class IncidentPackageBuilder
 {
     public const string PackageFormat = "netscope-incident-package";
     public const string PackageFormatVersion = "1";
-    public const string RedactionPolicyVersion = "m1-alias-v2";
+
+    /// <summary>
+    /// Bumped when the alias strategy or the identity pre-collection changes. Package format
+    /// version stays 1 because every change is additive and old readers keep their fields.
+    /// </summary>
+    public const string RedactionPolicyVersion = "m1-alias-v3";
 
     private const string ManifestName = "manifest.json";
     private const string EventsName = "events.ndjson";
@@ -44,15 +51,26 @@ internal static class IncidentPackageBuilder
     private const string ChecksumsName = "checksums.sha256";
 
     public static BuiltIncidentPackage Build(ReplayResult replay, string incidentId, byte[] salt,
-        IReadOnlyList<string> warnings)
+        IReadOnlyList<string> warnings, PackageStatistics? statistics = null)
     {
         ArgumentNullException.ThrowIfNull(replay);
         ArgumentNullException.ThrowIfNull(incidentId);
         ArgumentNullException.ThrowIfNull(salt);
         ArgumentNullException.ThrowIfNull(warnings);
+        statistics ??= PackageStatisticsBuilder.Build(replay);
 
         var ledger = new RedactionLedger();
         var anonymizer = new PackageAnonymizer(ledger, salt);
+
+        // Identity pre-collection: register every structured or structurally recognisable name
+        // before rewriting the first value. A name that only exists in an error message, or an
+        // event whose traversal order differs from the interface list, must not decide whether the
+        // alias exists at all.
+        foreach (var envelope in replay.Log.Events)
+        {
+            anonymizer.Precollect(envelope.Payload);
+            anonymizer.PrecollectText(envelope.Source);
+        }
 
         var events = replay.Log.Events
             .Select(envelope => envelope with
@@ -104,7 +122,7 @@ internal static class IncidentPackageBuilder
             "Redaction policy, categories and counts; contains no original values."));
 
         var manifest = BuildManifest(replay, incidentId, payloadEntries, snapshots.Count, startedAt, endedAt,
-            ledger.Snapshot(), warnings);
+            ledger.Snapshot(), warnings, statistics);
         var manifestEntry = new PackageEntry(ManifestName, ExportJson.Serialize(manifest),
             "Package metadata, versions, counts, policy and per-file SHA-256.");
 
@@ -126,6 +144,7 @@ internal static class IncidentPackageBuilder
             Warnings = warnings,
             StartedAt = startedAt,
             EndedAt = endedAt,
+            Statistics = statistics,
         };
     }
 
@@ -217,7 +236,7 @@ internal static class IncidentPackageBuilder
             ["policy_version"] = RedactionPolicyVersion,
             ["salt_included"] = false,
             ["salt_handling"] = "A random per-package salt keys user/device/path/private-host aliases, class-preserving address aliases, proxy endpoint aliases and the incident id. It is held in memory only and is never serialized.",
-            ["alias_scheme"] = "Public targets use target-A, target-B, ...; user, device, path, private-host and proxy endpoint aliases are keyed by the per-package salt and stay stable inside one package. Interface name/description/alias/SSID values use device aliases. Proxy server and NO_PROXY lists retain protocol names, ports, wildcards, CIDR prefixes and list order while host identity is aliased.",
+            ["alias_scheme"] = "Public targets use target-A, target-B, ...; user, device, path, private-host and proxy endpoint aliases are keyed by the per-package salt and stay stable inside one package. Interface name/description/alias/SSID values use device aliases. Device identities are pre-collected over the whole package before any value is rewritten, so an adapter, virtual switch or filter name that exists only in an error message, or whose event order differs from the interface list, still maps to the same device alias. Proxy server and NO_PROXY lists retain protocol names, ports, wildcards, CIDR prefixes and list order while host identity is aliased.",
             ["anonymous_claims"] = "Pseudonymous aliases, not mathematical anonymity.",
             ["address_alias_limits"] = "Addresses remain class-preserving and parseable, but are pseudonymous placeholders rather than an injective permutation: different private or public addresses can share an alias when a 100-value octet map collides. Private IPv4 interface/route/gateway aliases keep their /16 and /24 relation (10/8, 192.168/16 and 172.16/12; 172.16/12 aliases also share the /12 class). 100.64/10 aliases map into 10/8 and keep /16 and /24, but the original 100.64/10 boundary is not preserved. IPv4 public aliases use a bounded 203.100-199.100-199.100-199 placeholder space: it offers far more than 100 values but carries no public-prefix or topology guarantee. Prefixes finer than /24 and non-octet boundaries are not preserved. IPv6 host bits use a keyed prefix-preserving mapping inside the class range, and IPv4-mapped IPv6 keeps the same embedded IPv4 alias as the bare form.",
             ["counts"] = new JsonObject
@@ -243,6 +262,7 @@ internal static class IncidentPackageBuilder
                 "user names",
                 "computer names",
                 "interface names, descriptions, aliases and SSIDs",
+                "adapter, virtual switch, filter and tunnel names quoted or introduced by an entity keyword in error text",
                 "full local paths, including extended-length and UNC paths",
                 "subscription URLs",
                 "API keys, tokens and passwords",
@@ -257,7 +277,8 @@ internal static class IncidentPackageBuilder
 
     private static JsonObject BuildManifest(ReplayResult replay, string incidentId,
         IReadOnlyList<PackageEntry> payloadEntries, int snapshotCount, DateTimeOffset startedAt,
-        DateTimeOffset endedAt, IReadOnlyList<ExportRedactionSummary> redactions, IReadOnlyList<string> warnings)
+        DateTimeOffset endedAt, IReadOnlyList<ExportRedactionSummary> redactions,
+        IReadOnlyList<string> warnings, PackageStatistics statistics)
     {
         var files = new JsonArray();
         foreach (var entry in payloadEntries.OrderBy(item => item.Name, StringComparer.Ordinal))
@@ -303,9 +324,11 @@ internal static class IncidentPackageBuilder
             ["package_format"] = PackageFormat,
             ["package_format_version"] = PackageFormatVersion,
             ["incident_id"] = incidentId,
-            ["app_version"] = typeof(IncidentExporter).Assembly.GetName().Version?.ToString() ?? "0.0.0",
+            ["app_version"] = statistics.Versions.AppVersion,
+            ["app_build_commit"] = statistics.Versions.AppBuildCommit,
             ["rules_version"] = rulesVersions.Count == 0 ? "none" : string.Join(",", rulesVersions.Select(node => node!.GetValue<string>())),
             ["rules_versions"] = rulesVersions,
+            ["versions"] = BuildVersions(statistics.Versions),
             ["synthetic"] = replay.Summary.AllSynthetic,
             ["synthetic_event_count"] = replay.Summary.SyntheticCount,
             ["time_range"] = new JsonObject
@@ -315,16 +338,25 @@ internal static class IncidentPackageBuilder
             },
             ["counts"] = new JsonObject
             {
+                // The historical fields keep their meaning: gaps is the sequence-gap count and
+                // observation_gap_events is the non-success status count. New counters are added
+                // next to them instead of redefining either one.
                 ["events"] = replay.Log.Events.Count,
                 ["snapshots"] = snapshotCount,
                 ["diagnoses"] = replay.Diagnoses.Count,
                 ["gaps"] = replay.Log.SequenceGaps.Count,
+                ["gap_events"] = statistics.Gaps.GapEventCount,
                 ["observation_gap_events"] = replay.Summary.ObservationGapCount,
-                ["failed_events"] = replay.Log.Events.Count(envelope => envelope.Status is EventStatus.Failed
-                    or EventStatus.Timeout or EventStatus.Cancelled or EventStatus.Unsupported
-                    or EventStatus.AccessDenied),
+                ["partial_events"] = replay.Summary.PartialCount,
+                ["probe_events"] = statistics.ProbeCoverage.ProbeEvents,
+                ["failed_events"] = statistics.Gaps.FailedEventCount,
                 ["duplicate_event_ids"] = replay.Log.DuplicateCount,
             },
+            ["gap_statistics"] = BuildGapStatistics(statistics.Gaps),
+            ["completeness"] = BuildCompleteness(statistics.Completeness),
+            ["probe_coverage"] = BuildProbeCoverage(statistics.ProbeCoverage),
+            ["change_summary"] = BuildChangeSummary(statistics.Changes),
+            ["diagnosis_provenance"] = BuildDiagnosisProvenance(statistics.Diagnoses),
             ["status_counts"] = statusCounts,
             ["redaction"] = new JsonObject
             {
@@ -336,6 +368,95 @@ internal static class IncidentPackageBuilder
             ["files"] = files,
             ["warnings"] = ToJsonArray(warnings),
         };
+    }
+
+    private static JsonObject BuildVersions(PackageVersionInfo versions) => new()
+    {
+        ["app_version"] = versions.AppVersion,
+        ["app_informational_version"] = versions.AppInformationalVersion,
+        ["app_build_commit"] = versions.AppBuildCommit,
+        ["app_build_commit_source"] = versions.AppBuildCommitSource,
+        ["package_format_version"] = versions.PackageFormatVersion,
+        ["redaction_policy_version"] = versions.RedactionPolicyVersion,
+        ["evidence_payload_versions"] = ToJsonArray(versions.EvidencePayloadVersions),
+        ["parser_versions"] = ToJsonArray(versions.ParserVersions),
+        ["rule_versions"] = ToJsonArray(versions.RuleVersions),
+        ["source_versions"] = ToJsonArray(versions.SourceVersions),
+        ["commit_note"] = "app_build_commit is the source revision embedded in the built assembly; it is not the current checkout and a local uncommitted build can differ from it.",
+    };
+
+    private static JsonObject BuildGapStatistics(PackageGapStatistics gaps) => new()
+    {
+        ["sequence_gaps"] = gaps.SequenceGapCount,
+        ["gap_events"] = gaps.GapEventCount,
+        ["observation_gap_events"] = gaps.ObservationGapEventCount,
+        ["failed_events"] = gaps.FailedEventCount,
+        ["note"] = gaps.Note,
+    };
+
+    private static JsonObject BuildCompleteness(PackageDomainCompleteness completeness) => new()
+    {
+        ["snapshots"] = completeness.SnapshotCount,
+        ["incomplete_snapshots"] = completeness.IncompleteSnapshotCount,
+        ["collection_complete"] = completeness.CollectionComplete,
+        ["domain_status_counts"] = BuildStatusCounts(completeness.Domains),
+        ["proxy_subdomain_status_counts"] = BuildStatusCounts(completeness.ProxySubdomains),
+        ["note"] = completeness.Note,
+    };
+
+    private static JsonObject BuildProbeCoverage(PackageProbeCoverage coverage) => new()
+    {
+        ["has_probe_results"] = coverage.HasProbeResults,
+        ["probe_events"] = coverage.ProbeEvents,
+        ["probe_groups"] = coverage.ProbeGroups,
+        ["targets"] = coverage.TargetCount,
+        ["address_families"] = ToJsonArray(coverage.AddressFamilies),
+        ["paths"] = ToJsonArray(coverage.Paths),
+        ["successful"] = coverage.Successful,
+        ["partial"] = coverage.Partial,
+        ["failed"] = coverage.Failed,
+        ["note"] = coverage.Note,
+    };
+
+    private static JsonObject BuildChangeSummary(PackageChangeSummary changes) => new()
+    {
+        ["comparable_pairs"] = changes.ComparablePairs,
+        ["interfaces_compared"] = changes.InterfacesCompared,
+        ["changed_field_counts"] = new JsonObject(
+            changes.FieldCounts.Select(item =>
+                new KeyValuePair<string, JsonNode?>(item.Field, JsonValue.Create(item.Count)))),
+        ["changes"] = new JsonArray(changes.Changes.Select(change => (JsonNode)new JsonObject
+        {
+            ["from_sequence"] = change.FromSequence,
+            ["to_sequence"] = change.ToSequence,
+            ["interface_guid"] = change.InterfaceGuid,
+            ["family"] = change.Family,
+            ["if_index"] = change.IfIndex,
+            ["field"] = change.Field,
+            ["before"] = change.Before,
+            ["after"] = change.After,
+        }).ToArray()),
+        ["truncated"] = changes.Truncated,
+        ["note"] = changes.Note,
+    };
+
+    private static JsonObject BuildDiagnosisProvenance(PackageDiagnosisProvenance provenance) => new()
+    {
+        ["recorded_in_package"] = provenance.RecordedInPackage,
+        ["recomputed_by_exporter"] = provenance.RecomputedByExporter,
+        ["note"] = provenance.Note,
+    };
+
+    private static JsonObject BuildStatusCounts(IReadOnlyList<PackageStatusCount> counts)
+    {
+        var result = new JsonObject();
+        foreach (var item in counts)
+        {
+            result[item.Path] ??= new JsonObject();
+            ((JsonObject)result[item.Path]!)[item.Status] = item.Count;
+        }
+
+        return result;
     }
 
     private static byte[] BuildChecksums(PackageEntry manifest, IReadOnlyList<PackageEntry> payloadEntries)

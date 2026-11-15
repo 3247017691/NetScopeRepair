@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using NetScope.Desktop.Services;
 using NetScope.Domain;
 using NetScope.Storage;
 
@@ -16,12 +18,29 @@ public sealed class TimelineViewModel : ViewModelBase
     private bool _isDirty;
     private string _detailJson = "选择一行可查看该事件的完整 payload。";
     private TimelineRow? _selectedRow;
+    private string _changeSummaryText = "还没有可对比的相邻观察。";
 
     public ObservableCollection<TimelineRow> Rows { get; } = new();
 
     public ObservableCollection<string> Problems { get; } = new();
 
     public ObservableCollection<string> Gaps { get; } = new();
+
+    /// <summary>Adjacent observations that actually differ, matched by GUID/LUID/family.</summary>
+    public ObservableCollection<ObservationPairRow> ObservationPairs { get; } = new();
+
+    public string ChangeBoundaryText =>
+        "只陈述两次观察记录到的值。出现/未观测到不表示创建或删除，也不推断操作者、操作时间或因果关系。";
+
+    public string ChangeSummaryText
+    {
+        get => _changeSummaryText;
+        private set => Set(ref _changeSummaryText, value);
+    }
+
+    public bool HasObservationPairs => ObservationPairs.Count > 0;
+
+    public bool HasNoObservationPairs => ObservationPairs.Count == 0;
 
     public string SessionPath
     {
@@ -81,6 +100,10 @@ public sealed class TimelineViewModel : ViewModelBase
         Rows.Clear();
         Problems.Clear();
         Gaps.Clear();
+        ObservationPairs.Clear();
+        ChangeSummaryText = "还没有可对比的相邻观察。";
+        Raise(nameof(HasObservationPairs));
+        Raise(nameof(HasNoObservationPairs));
         SessionPath = "";
         SummaryText = "还没有可显示的时间线。开始观察或载入合成演示后即可查看。";
         CountsText = "";
@@ -116,6 +139,8 @@ public sealed class TimelineViewModel : ViewModelBase
             if (replay.Log.DuplicateCount > 0)
                 Gaps.Add($"重复事件：{replay.Log.DuplicateCount} 条（保留首次出现）");
 
+            ApplyObservationChanges(replay);
+
             SessionPath = path;
             IsSynthetic = replay.Summary.AllSynthetic;
             CountsText = $"事件 {replay.Summary.EventCount} · 成功 {replay.Summary.SuccessCount} · 部分 {replay.Summary.PartialCount} · 观察缺口 {replay.Summary.ObservationGapCount}";
@@ -133,6 +158,43 @@ public sealed class TimelineViewModel : ViewModelBase
             StatusMessage = "读取会话失败：" + exception.GetType().Name + "。文件可能正在写入或已损坏。";
             return false;
         }
+    }
+
+    /// <summary>
+    /// Compares every adjacent decodable snapshot. The report is display-only: it never rebuilds
+    /// a missing observation and never infers who changed anything.
+    /// </summary>
+    private void ApplyObservationChanges(ReplayResult replay)
+    {
+        ObservationPairs.Clear();
+        var snapshots = replay.SnapshotScopes.Select(scope => scope.Snapshot).ToArray();
+        var report = ObservationChangeExplainer.Compare(snapshots);
+        foreach (var pair in report.Pairs)
+            ObservationPairs.Add(UiRows.ObservationPair(pair));
+
+        if (report.CannotCompareReason is { } reason)
+        {
+            ChangeSummaryText = snapshots.Length == 0 && replay.Log.Events.Count > 0
+                ? "这个会话有事件，但没有可解码的网络快照（旧格式或未包含快照）；无法做相邻观察对比。"
+                : reason;
+        }
+        else
+        {
+            var range = report.FirstObservedAt is { } first && report.LastObservedAt is { } last
+                ? "时间范围 " + UiText.ObservationTime(first) + " — " + UiText.ObservationTime(last)
+                : "时间范围未知";
+            var shown = report.Pairs.Count.ToString(CultureInfo.InvariantCulture);
+            var omitted = report.OmittedChangedPairs > 0
+                ? "；另有 " + report.OmittedChangedPairs + " 对有差异的观察未展开，计数仍保留"
+                : "";
+            ChangeSummaryText = "共 " + report.TotalSnapshots + " 次网络观察 · " + range
+                + " · " + report.ComparedPairs + " 对相邻比较，其中 "
+                + report.PairsWithChanges + " 对有差异；下面列出 " + shown + " 对" + omitted + "。"
+                + "没有差异的对不表示期间没有被采集，只表示两次可读快照的值相同。";
+        }
+
+        Raise(nameof(HasObservationPairs));
+        Raise(nameof(HasNoObservationPairs));
     }
 
     private static TimelineRow ToRow(EventEnvelope envelope) => new(

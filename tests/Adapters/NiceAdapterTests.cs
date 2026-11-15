@@ -24,7 +24,7 @@ public sealed class NiceAdapterTests
         Assert.Null(evidence.ValidityReason);
         Assert.Equal(KnownClientIds.Nice, evidence.ClientId);
         Assert.Equal(ConfigProvenance.DiskOnly, evidence.Provenance);
-        Assert.Equal("nice-runtime-yaml/1.0.1", evidence.ParserVersion);
+        Assert.Equal("nice-runtime-yaml/1.0.2", evidence.ParserVersion);
         Assert.Equal(ConfigPath, evidence.SourcePath);
         Assert.Equal(ReadAt, evidence.ReadAt);
         Assert.Equal(ModifiedAt, evidence.FileModifiedAt);

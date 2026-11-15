@@ -6,7 +6,30 @@ namespace NetScope.Adapters;
 // reconfigures a client, and no boundary performs a network request. Tests replace every
 // boundary with a deterministic fake so no real user file or machine state is read.
 
-/// <summary>One process, as far as the platform let this process read it. Missing fields stay null.</summary>
+/// <summary>Field names used by <c>UnreadableFields</c>; a failed read keeps its own reason code.</summary>
+public static class ObservationFieldNames
+{
+    public const string Name = "name";
+
+    public const string ExecutablePath = "executable_path";
+
+    public const string Version = "version";
+
+    public const string StartTime = "start_time";
+
+    public const string ParentProcessId = "parent_process_id";
+
+    public const string InterfaceGuid = "interface_guid";
+
+    public const string InterfaceIndex = "interface_index";
+
+    public const string InterfaceLuid = "interface_luid";
+}
+
+/// <summary>
+/// One process, as far as the platform let this process read it. Missing fields stay null and
+/// <see cref="UnreadableFields"/> records the reason, so "could not read" never looks like "absent".
+/// </summary>
 public sealed record ProcessObservation
 {
     public required int ProcessId { get; init; }
@@ -19,6 +42,16 @@ public sealed record ProcessObservation
     public string? Version { get; init; }
 
     public DateTimeOffset? StartTime { get; init; }
+
+    /// <summary>Parent PID as reported by the process snapshot; null when unreadable or no parent.</summary>
+    public int? ParentProcessId { get; init; }
+
+    /// <summary>Field name -> short reason code (access_denied, process_exited, ...).</summary>
+    public IReadOnlyDictionary<string, string> UnreadableFields { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>True only when this field was read; absence is not evidence that the value is null.</summary>
+    public bool WasRead(string field) => !UnreadableFields.ContainsKey(field);
 }
 
 /// <summary>Supplies process identity. It must never create, terminate or signal a process.</summary>
@@ -36,11 +69,29 @@ public sealed record ListenerObservation
 
     public string? Host { get; init; }
 
+    /// <summary>ipv4 / ipv6; the owner table is currently IPv4-only.</summary>
+    public string AddressFamily { get; init; } = "ipv4";
+
     public int? OwnerProcessId { get; init; }
 
     public string? OwnerProcessName { get; init; }
 
     public string? OwnerExecutablePath { get; init; }
+
+    /// <summary>
+    /// read / unreadable / unsupported_family. A null PID with state "read" is not expected; the
+    /// reader sets one of the failure states instead so the UI can distinguish the reasons.
+    /// </summary>
+    public string OwnerReadState { get; init; } = "read";
+
+    /// <summary>Short reason code such as owner_table_unavailable or ipv6_owner_table_not_supported.</summary>
+    public string? OwnerReadReason { get; init; }
+
+    /// <summary>
+    /// Best-effort creation time of the owner endpoint. When present it lets the adapter reject a
+    /// PID that was reused after the listener snapshot; null means the instance was not verified.
+    /// </summary>
+    public DateTimeOffset? OwnerInstanceStartTime { get; init; }
 }
 
 /// <summary>Supplies listening endpoints. It must never connect to them.</summary>
@@ -62,7 +113,25 @@ public sealed record NetworkAdapterObservation
     /// <summary>up / down / dormant / unknown.</summary>
     public required string OperationalStatus { get; init; }
 
+    /// <summary>Stable interface identity (the Windows interface GUID string), when readable.</summary>
+    public string? InterfaceId { get; init; }
+
+    /// <summary>Current locating hint only; never remembered across observations.</summary>
+    public int? InterfaceIndex { get; init; }
+
+    /// <summary>Locally unique interface id, when the platform could convert it.</summary>
+    public long? Luid { get; init; }
+
+    /// <summary>All unicast addresses, kept for compatibility with the earlier snapshot vocabulary.</summary>
     public IReadOnlyList<string> Addresses { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyList<string> Ipv4Addresses { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyList<string> Ipv6Addresses { get; init; } = Array.Empty<string>();
+
+    /// <summary>Field name -> short reason code.</summary>
+    public IReadOnlyDictionary<string, string> UnreadableFields { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
 }
 
 /// <summary>Supplies the adapter list. It must never enable, disable or reconfigure an adapter.</summary>
@@ -182,4 +251,13 @@ public static class KnownClientIds
 
     /// <summary>Aggregated listeners that cannot be attributed to a supported client.</summary>
     public const string UnknownListener = "unknown_listener";
+
+    /// <summary>Core-like processes that cannot be attributed to a supported client.</summary>
+    public const string UnattributedCore = "unattributed_core";
+
+    /// <summary>
+    /// Machine-level TUN candidates. They are kept separate from every client because no read-only
+    /// source in M1 proves which client created an adapter or carries this connection's traffic.
+    /// </summary>
+    public const string SystemTun = "system_tun";
 }

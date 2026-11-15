@@ -94,6 +94,61 @@ public sealed record ProbeGroupPlan
     public required DateTimeOffset StartedAt { get; init; }
 }
 
+/// <summary>
+/// Wire vocabulary for the R1-B family contract. The requested family is a request policy;
+/// the local connection family and the target family are observations and may be unknown.
+/// </summary>
+public static class ProbeFamilyPolicy
+{
+    /// <summary>No constraint was requested; the value covers null/empty/any/dual/unspecified.</summary>
+    public const string Any = "any";
+
+    public const string Ipv4 = "ipv4";
+
+    public const string Ipv6 = "ipv6";
+
+    /// <summary>Normalizes a raw plan/request value; an invalid value is returned unchanged so callers refuse it.</summary>
+    public static string Normalize(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return Any;
+        var value = raw.Trim().ToLowerInvariant();
+        return value switch
+        {
+            "ipv4" or "v4" => Ipv4,
+            "ipv6" or "v6" => Ipv6,
+            "any" or "dual" or "unspecified" => Any,
+            _ => value,
+        };
+    }
+
+    public static bool IsKnown(string? raw)
+    {
+        var value = Normalize(raw);
+        return value is Any or Ipv4 or Ipv6;
+    }
+
+    public static bool IsEnforcedFamily(string? raw) => Normalize(raw) is Ipv4 or Ipv6;
+}
+
+/// <summary>What one probe attempt could prove about the target address family.</summary>
+public static class ProbeTargetFamilyStatus
+{
+    /// <summary>This process resolved and dialled the target; TargetAddressFamily is proven.</summary>
+    public const string Observed = "observed";
+
+    /// <summary>The explicit proxy resolves the target; only the proxy-leg connection is observed.</summary>
+    public const string UnknownThroughProxy = "unknown_through_proxy";
+
+    /// <summary>The system stack may use a proxy/PAC/tunnel; the target family is not observable.</summary>
+    public const string UnknownSystemDefault = "unknown_system_default";
+
+    /// <summary>The request was attempted locally but no connection proved the target family.</summary>
+    public const string UnknownAfterAttempt = "unknown_after_attempt";
+
+    /// <summary>The request was refused or never started, so no family was attempted.</summary>
+    public const string NotAttempted = "not_attempted";
+}
+
 /// <summary>Outcome of exactly one path against exactly one target.</summary>
 public sealed record ProbeResult
 {
@@ -124,9 +179,38 @@ public sealed record ProbeResult
 
     public IReadOnlyList<string> ResolvedAddresses { get; init; } = Array.Empty<string>();
 
+    /// <summary>Provenance of the local resolution sample, for example "system-dns"; null when unknown.</summary>
+    public string? ResolutionSource { get; init; }
+
+    /// <summary>UTC time of the local resolution that fed the connection; null when none was observed.</summary>
+    public DateTimeOffset? ResolvedAt { get; init; }
+
+    /// <summary>What this attempt really proved about its TCP connection; null when it observed nothing.</summary>
+    public ProbeConnectionFact? Connection { get; init; }
+
     public string? ProxyEndpointId { get; init; }
 
+    /// <summary>
+    /// Legacy request value (null/any/ipv4/ipv6) kept for old readers and exports. New producers
+    /// also write <see cref="RequestedAddressFamily"/> with the normalized policy.
+    /// </summary>
     public string? AddressFamily { get; init; }
+
+    /// <summary>Requested policy family: <c>any</c> (no constraint), <c>ipv4</c> or <c>ipv6</c>.</summary>
+    public string? RequestedAddressFamily { get; init; }
+
+    /// <summary>
+    /// Family of the TCP connection this process really made: the target leg with no explicit
+    /// proxy, the proxy leg with an explicit proxy, or the actual next hop for the system default
+    /// stack when the connect seam observed it. Null when unknown; never filled from the policy.
+    /// </summary>
+    public string? LocalConnectionAddressFamily { get; init; }
+
+    /// <summary>Proven target family; only set when this process itself resolved and dialled the target.</summary>
+    public string? TargetAddressFamily { get; init; }
+
+    /// <summary>One of <see cref="ProbeTargetFamilyStatus"/> constants; null only for legacy events.</summary>
+    public string? TargetAddressFamilyStatus { get; init; }
 
     public string? Method { get; init; }
 
@@ -159,6 +243,27 @@ public sealed record ProbeResult
     public bool IsSuccess => Status.IsSuccess();
 }
 
+/// <summary>
+/// One attempt's proven TCP connection fact. Unknown parts stay null: a probe never guesses an
+/// address, a leg or a reuse it did not observe.
+/// </summary>
+public sealed record ProbeConnectionFact
+{
+    /// <summary>target / proxy / unknown: the leg this connection was dialled for.</summary>
+    public required string EndpointRole { get; init; }
+
+    /// <summary>IP literal the socket really connected to; null when no new connection was made.</summary>
+    public string? RemoteAddress { get; init; }
+
+    public int? RemotePort { get; init; }
+
+    /// <summary>
+    /// True only when the attempt provably reused a pooled connection and therefore performed no
+    /// new name resolution; null when the attempt could not tell.
+    /// </summary>
+    public bool? Reused { get; init; }
+}
+
 /// <summary>All path results for one group, including the case where the budget ran out.</summary>
 public sealed record ProbeGroupResult
 {
@@ -178,3 +283,5 @@ public sealed record ProbeGroupResult
     /// <summary>True only when the producer proved scope, timing and topology are comparable.</summary>
     public bool TimingComparable { get; init; }
 }
+
+

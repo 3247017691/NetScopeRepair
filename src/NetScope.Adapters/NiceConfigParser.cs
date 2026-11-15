@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using NetScope.Application;
 
 namespace NetScope.Adapters;
 
@@ -9,9 +10,9 @@ namespace NetScope.Adapters;
 /// </summary>
 internal static partial class NiceConfigParser
 {
-    public const string ParserVersion = "nice-runtime-yaml/1.0.1";
+    public const string ParserVersion = "nice-runtime-yaml/1.0.2";
 
-    private static readonly string[] ExpectedKeys =
+    internal static readonly string[] ExpectedKeys =
     [
         "mixed_port",
         "mode",
@@ -21,13 +22,26 @@ internal static partial class NiceConfigParser
         "allow_lan",
     ];
 
+    /// <summary>
+    /// Facts the diagnostics path cannot leave unknown. The remaining whitelist fields are
+    /// optional: their absence is a notice with coverage, not a parse gap.
+    /// </summary>
+    internal static readonly string[] RequiredKeys =
+    [
+        "mixed_port",
+        "mode",
+        "tun_enable",
+    ];
+
     public static WhitelistParseResult Parse(string text)
     {
         var facts = new Dictionary<string, string>(StringComparer.Ordinal);
+        var notices = new List<string>();
         var gaps = new List<string>();
         string? invalid = null;
         var sawUnknown = false;
         var recognized = 0;
+        var invalidField = (string?)null;
         string? section = null;
         int? childIndent = null;
         var sectionIsList = false;
@@ -132,6 +146,7 @@ internal static partial class NiceConfigParser
             if (value.Length == 0)
             {
                 invalid ??= $"白名单字段 {factKey} 缺少取值";
+                invalidField ??= factKey;
                 continue;
             }
 
@@ -139,6 +154,7 @@ internal static partial class NiceConfigParser
             if (!TryValidate(factKey, value, out var canonical, out var reason))
             {
                 invalid ??= reason;
+                invalidField ??= factKey;
                 continue;
             }
 
@@ -147,6 +163,7 @@ internal static partial class NiceConfigParser
                 if (!string.Equals(existing, canonical, StringComparison.Ordinal))
                 {
                     invalid ??= $"白名单字段 {factKey} 出现多个取值，无法确定";
+                    invalidField ??= factKey;
                 }
 
                 continue;
@@ -163,6 +180,7 @@ internal static partial class NiceConfigParser
                 Valid = false,
                 ValidityReason = invalid,
                 Facts = facts,
+                Coverage = BuildInvalidCoverage(facts, invalidField),
                 Gaps = gaps,
             };
         }
@@ -175,15 +193,30 @@ internal static partial class NiceConfigParser
 
         if (sawUnknown)
         {
-            gaps.Add("配置包含白名单之外的键或结构；其内容未被读取，也未进入事实或文本。");
+            // A normal runtime.yaml contains many structures outside this whitelist. They are not
+            // read, not stored, and no longer turn a successfully parsed file into a defect.
+            notices.Add("配置包含白名单之外的键或结构；内容未被读取，也不计入解析缺口。");
         }
 
+        var coverage = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var expected in ExpectedKeys)
         {
-            if (!facts.ContainsKey(expected))
+            if (facts.ContainsKey(expected))
             {
-                // Absence is unknown, not a default. No value is invented for a missing key.
-                gaps.Add($"{expected}: 未提供，保持未知");
+                coverage[expected] = ConfigFactCoverage.Present;
+                continue;
+            }
+
+            if (RequiredKeys.Contains(expected, StringComparer.Ordinal))
+            {
+                // Absence of a required fact is unknown, not a default.
+                coverage[expected] = ConfigFactCoverage.MissingRequired;
+                gaps.Add($"{expected}: 必需字段未提供，保持未知");
+            }
+            else
+            {
+                coverage[expected] = ConfigFactCoverage.MissingOptional;
+                notices.Add($"{expected}: 未提供（可选项），保持未知");
             }
         }
 
@@ -191,8 +224,29 @@ internal static partial class NiceConfigParser
         {
             Valid = true,
             Facts = facts,
+            Notices = notices,
+            Coverage = coverage,
             Gaps = gaps,
         };
+    }
+
+    private static IReadOnlyDictionary<string, string> BuildInvalidCoverage(
+        IReadOnlyDictionary<string, string> facts,
+        string? invalidField)
+    {
+        var coverage = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var expected in ExpectedKeys)
+        {
+            coverage[expected] = facts.ContainsKey(expected)
+                ? ConfigFactCoverage.Present
+                : string.Equals(expected, invalidField, StringComparison.Ordinal)
+                    ? ConfigFactCoverage.Invalid
+                    : RequiredKeys.Contains(expected, StringComparer.Ordinal)
+                        ? ConfigFactCoverage.MissingRequired
+                        : ConfigFactCoverage.MissingOptional;
+        }
+
+        return coverage;
     }
 
     private static bool TryValidate(string factKey, string value, out string canonical, out string? reason)

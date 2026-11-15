@@ -18,7 +18,7 @@ public sealed class Dx008IntermittentFailure : DiagnosticRuleBase
             probe.TargetId,
             probe.Path,
             probe.ProxyEndpointId,
-            probe.AddressFamily,
+            AddressFamily = DiagnosticComparability.RequestedPolicy(probe),
             probe.Method,
             probe.RequestOptionsKey,
             probe.ObservationWindowId,
@@ -113,3 +113,5 @@ public sealed class Dx008IntermittentFailure : DiagnosticRuleBase
                 || normalized.Contains("notstarted", StringComparison.OrdinalIgnoreCase));
     }
 }
+
+

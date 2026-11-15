@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\NetScope.Adapters\NetScope.Adapters.csproj" />
     <ProjectReference Include="..\..\src\NetScope.Application\NetScope.Application.csproj" />
     <ProjectReference Include="..\..\src\NetScope.Desktop\NetScope.Desktop.csproj" />
     <ProjectReference Include="..\..\src\NetScope.Diagnostics\NetScope.Diagnostics.csproj" />

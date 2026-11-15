@@ -217,7 +217,7 @@ public sealed class ReviewPrivacyTests
         var (entries, _) = await ExportPackageAsync();
         var report = PackageReader.Json(PackageReader.Text(entries["redaction-report.json"])).AsObject();
 
-        Assert.Equal("m1-alias-v2", report["policy_version"]!.GetValue<string>());
+        Assert.Equal("m1-alias-v3", report["policy_version"]!.GetValue<string>());
         Assert.NotNull(report["address_alias_limits"]);
         Assert.Contains(
             report["removed"]!.AsArray().Select(item => item!.GetValue<string>()),

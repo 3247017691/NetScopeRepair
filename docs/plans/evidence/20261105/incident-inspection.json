@@ -1,0 +1,310 @@
+{
+  "scope": "Bounded read-only archive inspection, not product replay or original-topology validation",
+  "archive_filename": "incident-9be62cef1dd31253c9d4e2e4.zip",
+  "archive_sha256": "8cdbdc330a2c77958d289617b778451b7528347b3fa89bbcb2724b79d6ba3ca6",
+  "entry_count": 108,
+  "uncompressed_bytes": 6494759,
+  "checksums_checked": 107,
+  "checksum_mismatches": [],
+  "checksum_full_coverage": true,
+  "manifest_counts": {
+    "events": 102,
+    "snapshots": 102,
+    "diagnoses": 0,
+    "gaps": 0,
+    "observation_gap_events": 0,
+    "failed_events": 0,
+    "duplicate_event_ids": 0
+  },
+  "manifest_app_version": "1.0.0.0",
+  "manifest_rules_version": "none",
+  "time_zone": "Asia/Shanghai (+08:00)",
+  "started_at_local": "2026-11-05T17:19:48.091483+08:00",
+  "ended_at_local": "2026-11-05T17:38:36.513276+08:00",
+  "duration_seconds": 1128.421793,
+  "maximum_observation_spacing_seconds": 118.762231,
+  "event_types": {
+    "snapshot": 102
+  },
+  "event_statuses": {
+    "partial": 102
+  },
+  "synthetic_event_count": 0,
+  "sequences_contiguous_from_one": true,
+  "duplicate_event_ids": 0,
+  "domain_status_counts": {
+    "interfaces": {
+      "partial": 102
+    },
+    "routes": {
+      "ok": 102
+    },
+    "dns": {
+      "ok": 102
+    },
+    "proxies": {
+      "ok": 102
+    }
+  },
+  "proxy_child_status_counts": {
+    "tool_process_environment": {
+      "ok": 102
+    },
+    "user_environment": {
+      "ok": 102
+    },
+    "machine_environment": {
+      "ok": 102
+    },
+    "win_inet": {
+      "ok": 102
+    },
+    "win_http": {
+      "unsupported": 102
+    }
+  },
+  "snapshot_field_names": [
+    "dns",
+    "interfaces",
+    "monotonic_ms",
+    "observed_at",
+    "proxies",
+    "routes",
+    "snapshot_id",
+    "synthetic"
+  ],
+  "interface_observation_changes": [
+    {
+      "sequence": 23,
+      "observed_at_local": "2026-11-05T17:23:29.561644+08:00",
+      "changes": [
+        {
+          "change": "observed_fields_changed",
+          "before": {
+            "if_index": 44,
+            "kind": "unknown",
+            "operational_status": "up",
+            "metric": 0,
+            "automatic_metric": false,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          },
+          "after": {
+            "if_index": 44,
+            "kind": "unknown",
+            "operational_status": "up",
+            "metric": 4225,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        },
+        {
+          "change": "observed_fields_changed",
+          "before": {
+            "if_index": 22,
+            "kind": "wifi",
+            "operational_status": "down",
+            "metric": 25,
+            "automatic_metric": true,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          },
+          "after": {
+            "if_index": 22,
+            "kind": "wifi",
+            "operational_status": "down",
+            "metric": 4250,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        },
+        {
+          "change": "observed_fields_changed",
+          "before": {
+            "if_index": 9,
+            "kind": "wifi",
+            "operational_status": "down",
+            "metric": 25,
+            "automatic_metric": true,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          },
+          "after": {
+            "if_index": 9,
+            "kind": "wifi",
+            "operational_status": "down",
+            "metric": 4250,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        },
+        {
+          "change": "observed_fields_changed",
+          "before": {
+            "if_index": 13,
+            "kind": "ethernet",
+            "operational_status": "up",
+            "metric": 35,
+            "automatic_metric": true,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          },
+          "after": {
+            "if_index": 13,
+            "kind": "ethernet",
+            "operational_status": "up",
+            "metric": 4260,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        },
+        {
+          "change": "observed_fields_changed",
+          "before": {
+            "if_index": 10,
+            "kind": "ethernet",
+            "operational_status": "up",
+            "metric": 35,
+            "automatic_metric": true,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          },
+          "after": {
+            "if_index": 10,
+            "kind": "ethernet",
+            "operational_status": "up",
+            "metric": 4260,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        },
+        {
+          "change": "appeared_in_observation",
+          "after": {
+            "if_index": 53,
+            "kind": "ppp",
+            "operational_status": "up",
+            "metric": 35,
+            "automatic_metric": true,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          }
+        },
+        {
+          "change": "observed_fields_changed",
+          "before": {
+            "if_index": 24,
+            "kind": "wifi",
+            "operational_status": "up",
+            "metric": 35,
+            "automatic_metric": true,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          },
+          "after": {
+            "if_index": 24,
+            "kind": "wifi",
+            "operational_status": "up",
+            "metric": 4260,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        },
+        {
+          "change": "observed_fields_changed",
+          "before": {
+            "if_index": 1,
+            "kind": "loopback",
+            "operational_status": "up",
+            "metric": 75,
+            "automatic_metric": true,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          },
+          "after": {
+            "if_index": 1,
+            "kind": "loopback",
+            "operational_status": "up",
+            "metric": 4300,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        },
+        {
+          "change": "observed_fields_changed",
+          "before": {
+            "if_index": 20,
+            "kind": "ethernet",
+            "operational_status": "up",
+            "metric": 35,
+            "automatic_metric": true,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          },
+          "after": {
+            "if_index": 20,
+            "kind": "ethernet",
+            "operational_status": "up",
+            "metric": 4260,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 24,
+      "observed_at_local": "2026-11-05T17:23:39.616959+08:00",
+      "changes": [
+        {
+          "change": "absent_from_observation",
+          "before": {
+            "if_index": 44,
+            "kind": "unknown",
+            "operational_status": "up",
+            "metric": 4225,
+            "automatic_metric": false,
+            "disable_default_routes": true,
+            "family": "ipv4"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 26,
+      "observed_at_local": "2026-11-05T17:25:48.422915+08:00",
+      "changes": [
+        {
+          "change": "appeared_in_observation",
+          "after": {
+            "if_index": 44,
+            "kind": "unknown",
+            "operational_status": "up",
+            "metric": 0,
+            "automatic_metric": false,
+            "disable_default_routes": false,
+            "family": "ipv4"
+          }
+        }
+      ]
+    }
+  ],
+  "potential_unaliased_interface_error_occurrences": 2652,
+  "limits": [
+    "Checksums establish package self-consistency, not authenticity or absence of sensitive data.",
+    "No probe events means this archive cannot establish external connectivity or application recovery.",
+    "Observed parameter changes do not identify who changed them or prove causation.",
+    "Interface disappearance may be absence in observation; no interface-deletion cause is proven.",
+    "Address aliases do not preserve arbitrary prefixes; do not calculate live repair targets from this archive.",
+    "Manifest gaps counts gap events; zero does not mean all collection domains are complete.",
+    "Text-error count is heuristic; raw interface and virtual-switch names remain in some errors."
+  ]
+}

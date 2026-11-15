@@ -1,0 +1,119 @@
+<UserControl x:Class="NetScope.Desktop.Views.QuickRepairView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1080">
+    <StackPanel>
+        <!-- Real machine status -->
+        <Border Style="{StaticResource SectionCard}">
+            <StackPanel>
+                <TextBlock Text="本机快速修复（真实执行）" Style="{StaticResource H2}" />
+                <TextBlock Text="读取本机真实网卡、路由、DNS、代理配置与端口存活情况；只执行你勾选并二次确认的动作，每次改动都可回滚。本页始终读取真实机器，与顶部的合成演示横幅无关。"
+                           Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,14" TextWrapping="Wrap" />
+
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
+                        CornerRadius="6" Padding="14,10">
+                    <StackPanel>
+                        <TextBlock Text="{Binding SummaryText}" FontSize="12.5" Foreground="{StaticResource Ink}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding ElevationText}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding JournalText}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <Button Content="体检本机（只读）" Command="{Binding RefreshCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
+                    <Button Content="{Binding ApplyButtonText}" Command="{Binding ApplyCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                            IsEnabled="{Binding CanApply}" />
+                    <Button Content="{Binding RestoreButtonText}" Command="{Binding RestoreCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
+                    <Button Content="开代理" Command="{Binding ProxyOnCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
+                    <Button Content="关代理 · 纯直连" Command="{Binding ProxyOffCommand}" Style="{StaticResource GhostButton}" Margin="0,0,8,0" />
+                    <CheckBox Content="高风险模式" IsChecked="{Binding Deep, Mode=TwoWay}" VerticalAlignment="Center"
+                              Foreground="{StaticResource Muted}" FontSize="11.5" />
+                </StackPanel>
+                <TextBlock Text="高风险模式会额外列出「移除幽灵网卡」「重置旧接口静态 DNS」，默认不勾选。接口度量 / WinHTTP / 机器级变量需要管理员权限。"
+                           FontSize="11" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- Findings -->
+        <Border Style="{StaticResource SectionCard}">
+            <StackPanel>
+                <TextBlock Text="发现的问题" Style="{StaticResource H2}" />
+                <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,8,0,10" />
+                <ItemsControl ItemsSource="{Binding Findings}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                    CornerRadius="6" Padding="12,9" Margin="0,0,0,8">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Severity}" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource Accent}" />
+                                        <TextBlock Text="{Binding Code}" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="8,0,0,0" />
+                                        <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="10,0,0,0" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Detail}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="体检后显示；空列表表示本次没有发现残留，不会伪装成「已修复」。"
+                           FontSize="11" Foreground="{StaticResource Muted}"
+                           Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Actions -->
+        <Border Style="{StaticResource SectionCard}">
+            <StackPanel>
+                <TextBlock Text="可执行动作（勾选后才执行）" Style="{StaticResource H2}" />
+                <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,8,0,10" />
+                <ItemsControl ItemsSource="{Binding Actions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                    CornerRadius="6" Padding="12,9" Margin="0,0,0,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Top" Margin="0,2,10,0" />
+                                    <StackPanel Grid.Column="1">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Badge}" FontSize="10.5" Foreground="{StaticResource Accent}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Title}" FontSize="12.5" Foreground="{StaticResource Ink}" FontWeight="SemiBold" Margin="10,0,0,0" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Detail}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <!-- Result log -->
+        <Border Style="{StaticResource SectionCard}">
+            <StackPanel>
+                <TextBlock Text="执行结果" Style="{StaticResource H2}" />
+                <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,8,0,10" />
+                <ItemsControl ItemsSource="{Binding Messages}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontSize="11.5" Foreground="{StaticResource Ink}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <!-- Boundary note -->
+        <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
+            <TextBlock FontSize="11.5" Foreground="{StaticResource Warn}" TextWrapping="Wrap"
+                       Text="边界：本页不禁用物理网卡、不删除路由表条目、不动 VMware/系统虚拟适配器、不碰 TUN 三字段。旧的「修复」页仍按 G3 门禁保持 Disabled（TUN 深度修复需签名 broker 与 VM 实验）。" />
+        </Border>
+    </StackPanel>
+</UserControl>

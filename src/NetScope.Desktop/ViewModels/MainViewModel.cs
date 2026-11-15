@@ -36,6 +36,9 @@ public sealed class MainViewModel : ViewModelBase
         Home = new HomeViewModel(services.Session, () => _settings, DiagnoseAsync, HandleErrorAsync, CollectAsync);
         Timeline = new TimelineViewModel();
         Diagnoses = new DiagnosesViewModel();
+        Repair = new RepairViewModel(services.Repair, services.Clock);
+        QuickRepair = new QuickRepairViewModel();
+        CaseReplay = new CaseReplayViewModel();
         Clients = new ClientsViewModel(services.Clients, services.Explanations);
         Export = new ExportViewModel(services.Exporter, () => DisplaySessionPath, _pickFolder);
         Settings = new SettingsViewModel(services.SettingsStore, _settings, ApplySettings);
@@ -49,6 +52,12 @@ public sealed class MainViewModel : ViewModelBase
                 "M3 12h4l3 8 4-16 3 8h4"),
             new NavSection("诊断与证据", "结论、证据与反证", Diagnoses,
                 "M12 2l8 4v6c0 5.25-3.5 10-8 11-4.5-1-8-5.75-8-11V6l8-4zm-2 10l2 2 4-4"),
+            new NavSection("案例回放", "固定规则重放本地故障包", CaseReplay,
+                "M4 4h16v12H4zM8 20h8M12 16v4M9 9l3-3 3 3M12 6v5"),
+            new NavSection("修复", "TUN 深度计划（门禁 Disabled）", Repair,
+                "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z"),
+            new NavSection("快速修复", "本机真实体检 · 可回滚执行", QuickRepair,
+                "M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"),
             new NavSection("多客户端", "只读状态与依赖解释", Clients,
                 "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"),
             new NavSection("导出", "脱敏预览与本地 ZIP", Export,
@@ -75,6 +84,17 @@ public sealed class MainViewModel : ViewModelBase
     public TimelineViewModel Timeline { get; }
 
     public DiagnosesViewModel Diagnoses { get; }
+
+    public RepairViewModel Repair { get; }
+
+    /// <summary>
+    /// Real, user-confirmed quick repair. Independent of the TUN three-field gateway, which stays
+    /// disabled under the G3 gate. This one reads and writes the local machine.
+    /// </summary>
+    public QuickRepairViewModel QuickRepair { get; }
+
+    /// <summary>T12 read-only case replay workbench; local packages only, never a live probe.</summary>
+    public CaseReplayViewModel CaseReplay { get; }
 
     public ClientsViewModel Clients { get; }
 
@@ -163,7 +183,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public string DisplaySessionPath => IsDemo ? DemoPath : _services.Session.SessionPath;
 
-    public string AppVersionText => "M1 · 只读诊断 · 无修复入口";
+    public string AppVersionText => "M3 + 快速修复 · 本机受控写入 · 可回滚";
 
     public AppSettings SettingsSnapshot => _settings;
 
@@ -244,6 +264,15 @@ public sealed class MainViewModel : ViewModelBase
 
     public async Task ExitAsync()
     {
+        try
+        {
+            await Repair.PrepareExitAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            AppLog.Write("repair_exit_finalize_failed:" + exception.GetType().Name);
+        }
+
         try
         {
             await _services.Session.StopAsync().ConfigureAwait(false);
@@ -334,3 +363,4 @@ public sealed class MainViewModel : ViewModelBase
         return Task.CompletedTask;
     }
 }
+

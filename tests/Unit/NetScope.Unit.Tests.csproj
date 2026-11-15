@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\NetScope.Diagnostics\NetScope.Diagnostics.csproj" />
     <ProjectReference Include="..\..\src\NetScope.Domain\NetScope.Domain.csproj" />
     <ProjectReference Include="..\..\src\NetScope.Probes\NetScope.Probes.csproj" />
+    <ProjectReference Include="..\..\src\NetScope.Storage\NetScope.Storage.csproj" />
   </ItemGroup>
 
 </Project>

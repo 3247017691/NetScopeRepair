@@ -91,7 +91,7 @@ public sealed class ProbeMetadataTests
         {
             "window" => plan with { ObservationWindowId = null },
             "boot" => plan with { BootId = null },
-            _ => plan with { AddressFamily = null },
+            _ => plan with { AddressFamily = "carrier-pigeon" },
         };
         var transport = new FakeTransport((_, _) => Task.FromResult(TransportOutcome.Reachable(204)));
         var result = await new HttpProbeRunner(transport, new FakeClock()).RunAsync(plan, CancellationToken.None);
@@ -229,3 +229,4 @@ public sealed class ProbeMetadataTests
         Assert.True(item.StartedMonotonicMs >= 0);
     }
 }
+

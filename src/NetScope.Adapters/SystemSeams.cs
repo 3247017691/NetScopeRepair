@@ -132,6 +132,9 @@ public sealed class SystemProcessSource : IProcessSource
     {
         var items = new List<ProcessObservation>();
         var errors = new List<string>();
+        // Parent links are read from one read-only toolhelp snapshot. A null map means the parent
+        // field is unknown, not that the process has no parent.
+        var parents = NativeProcessParents.TryRead();
 
         try
         {
@@ -141,7 +144,7 @@ public sealed class SystemProcessSource : IProcessSource
                 {
                     try
                     {
-                        items.Add(Describe(process));
+                        items.Add(Describe(process, parents));
                     }
                     catch (Exception exception) when (IsExpected(exception))
                     {
@@ -163,9 +166,12 @@ public sealed class SystemProcessSource : IProcessSource
             : Collected<IReadOnlyList<ProcessObservation>>.Partial(items, "部分进程身份不可读。", errors);
     }
 
-    private static ProcessObservation Describe(Process process)
+    private static ProcessObservation Describe(
+        Process process,
+        IReadOnlyDictionary<int, int>? parents)
     {
         var id = process.Id;
+        var unreadable = new Dictionary<string, string>(StringComparer.Ordinal);
 
         string? name = null;
         try
@@ -174,15 +180,22 @@ public sealed class SystemProcessSource : IProcessSource
         }
         catch (Exception exception) when (IsExpected(exception))
         {
+            unreadable[ObservationFieldNames.Name] = ReasonFor(exception);
         }
 
         string? path = null;
         try
         {
             path = process.MainModule?.FileName;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                unreadable[ObservationFieldNames.ExecutablePath] = "not_reported";
+                path = null;
+            }
         }
         catch (Exception exception) when (IsExpected(exception))
         {
+            unreadable[ObservationFieldNames.ExecutablePath] = ReasonFor(exception);
         }
 
         DateTimeOffset? startTime = null;
@@ -192,6 +205,39 @@ public sealed class SystemProcessSource : IProcessSource
         }
         catch (Exception exception) when (IsExpected(exception))
         {
+            unreadable[ObservationFieldNames.StartTime] = ReasonFor(exception);
+        }
+
+        string? version = null;
+        if (path is null)
+        {
+            unreadable[ObservationFieldNames.Version] = "executable_path_unreadable";
+        }
+        else
+        {
+            try
+            {
+                version = FileVersionInfo.GetVersionInfo(path).FileVersion;
+            }
+            catch (Exception exception) when (IsExpected(exception))
+            {
+                unreadable[ObservationFieldNames.Version] = ReasonFor(exception);
+            }
+        }
+
+        int? parent = null;
+        if (parents is null)
+        {
+            unreadable[ObservationFieldNames.ParentProcessId] = "parent_table_unavailable";
+        }
+        else if (parents.TryGetValue(id, out var parentId))
+        {
+            // 0/4 are the idle/system roots; they are read facts, not an unreadable field.
+            parent = parentId is 0 or 4 ? null : parentId;
+        }
+        else
+        {
+            unreadable[ObservationFieldNames.ParentProcessId] = "process_not_in_parent_table";
         }
 
         return new ProcessObservation
@@ -199,27 +245,24 @@ public sealed class SystemProcessSource : IProcessSource
             ProcessId = id,
             Name = name,
             ExecutablePath = path,
-            Version = ReadVersion(path),
+            Version = version,
             StartTime = startTime,
+            ParentProcessId = parent,
+            UnreadableFields = unreadable,
         };
     }
 
-    private static string? ReadVersion(string? path)
+    /// <summary>Short fixed code; never includes an exception message or a path.</summary>
+    private static string ReasonFor(Exception exception) => exception switch
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return null;
-        }
-
-        try
-        {
-            return FileVersionInfo.GetVersionInfo(path).FileVersion;
-        }
-        catch (Exception exception) when (IsExpected(exception))
-        {
-            return null;
-        }
-    }
+        UnauthorizedAccessException or SecurityException => "access_denied",
+        System.ComponentModel.Win32Exception win32 when win32.NativeErrorCode == 5 => "access_denied",
+        InvalidOperationException => "process_exited",
+        NotSupportedException => "not_supported",
+        IOException => "io_error",
+        ArgumentException => "invalid_argument",
+        _ => "unreadable",
+    };
 
     private static bool IsExpected(Exception exception) => exception is Win32Exception
         or InvalidOperationException
@@ -237,10 +280,88 @@ public sealed class SystemProcessSource : IProcessSource
     };
 }
 
+/// <summary>Reads PID -> parent PID from one read-only toolhelp snapshot. It never opens a process.</summary>
+internal static class NativeProcessParents
+{
+    private const uint Th32csSnapProcess = 0x00000002;
+    private const uint InvalidHandleValue = 0xFFFFFFFF;
+
+    public static IReadOnlyDictionary<int, int>? TryRead()
+    {
+        var snapshot = CreateToolhelp32Snapshot(Th32csSnapProcess, 0);
+        if (snapshot == IntPtr.Zero || snapshot == new IntPtr(unchecked((int)InvalidHandleValue)))
+        {
+            return null;
+        }
+
+        try
+        {
+            var entry = new ProcessEntry32 { DwSize = (uint)Marshal.SizeOf<ProcessEntry32>() };
+            if (!Process32FirstW(snapshot, ref entry))
+            {
+                return null;
+            }
+
+            var parents = new Dictionary<int, int>();
+            do
+            {
+                parents[(int)entry.Th32ProcessId] = (int)entry.Th32ParentProcessId;
+            }
+            while (Process32NextW(snapshot, ref entry));
+
+            return parents;
+        }
+        catch (Exception exception) when (exception is DllNotFoundException
+            or EntryPointNotFoundException
+            or BadImageFormatException
+            or MarshalDirectiveException
+            or SEHException)
+        {
+            return null;
+        }
+        finally
+        {
+            CloseHandle(snapshot);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct ProcessEntry32
+    {
+        public uint DwSize;
+        public uint CntUsage;
+        public uint Th32ProcessId;
+        public IntPtr Th32DefaultHeapId;
+        public uint Th32ModuleId;
+        public uint CntThreads;
+        public uint Th32ParentProcessId;
+        public int PcPriClassBase;
+        public uint DwFlags;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string SzExeFile;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint processId);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool Process32FirstW(IntPtr snapshot, ref ProcessEntry32 entry);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool Process32NextW(IntPtr snapshot, ref ProcessEntry32 entry);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CloseHandle(IntPtr handle);
+}
+
 /// <summary>
-/// Enumerates TCP listening endpoints read-only. Owner PID is filled only where the local IPv4
-/// owner table could be read; otherwise the endpoint is still reported with owner unknown. It never
-/// connects to a listener.
+/// Enumerates TCP listening endpoints read-only. Owner PID and a best-effort owner instance time
+/// are filled only where the local IPv4 owner table could be read; every other endpoint is still
+/// reported with the exact reason its owner stayed unknown. It never connects to a listener.
 /// </summary>
 public sealed class SystemListenerSource : IListenerSource
 {
@@ -249,30 +370,95 @@ public sealed class SystemListenerSource : IListenerSource
         try
         {
             var owners = NativeTcpOwners.TryRead();
+            // The same port can appear once per address in the API projection while the owner table
+            // stores one wildcard row (for example 0.0.0.0:7890). A unique per-port fallback keeps
+            // the owner fact without inventing a different socket.
+            var ownersByPort = owners?
+                .GroupBy(pair => pair.Key.Port)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(pair => pair.Value).DistinctBy(owner => owner.ProcessId).ToArray());
             var items = new List<ListenerObservation>();
-            var ownerGaps = 0;
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var unsupportedFamily = 0;
+            var missingOwnerRow = 0;
+            var portFallback = 0;
 
             foreach (var endpoint in IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners())
             {
-                int? owner = null;
-                if (owners is not null
-                    && endpoint.AddressFamily == AddressFamily.InterNetwork
-                    && owners.TryGetValue((endpoint.Address.ToString(), endpoint.Port), out var pid))
+                var family = endpoint.AddressFamily switch
                 {
-                    owner = pid;
+                    AddressFamily.InterNetwork => "ipv4",
+                    AddressFamily.InterNetworkV6 => "ipv6",
+                    _ => "unknown",
+                };
+
+                var host = endpoint.Address.ToString();
+                if (!seen.Add($"{family}:{host}:{endpoint.Port}"))
+                {
+                    // A duplicate projection of the same address:port is not a second listener.
+                    continue;
                 }
 
-                if (owner is null && endpoint.AddressFamily != AddressFamily.InterNetwork)
+                int? owner = null;
+                DateTimeOffset? ownerInstance = null;
+                string state;
+                string? reason = null;
+
+                if (owners is null)
                 {
-                    ownerGaps++;
+                    state = "unreadable";
+                    reason = "owner_table_unavailable";
+                }
+                else if (family == "ipv4")
+                {
+                    if (owners.TryGetValue((host, endpoint.Port), out var found))
+                    {
+                        owner = found.ProcessId;
+                        ownerInstance = found.CreatedAt;
+                        state = "read";
+                    }
+                    else if (ownersByPort is not null
+                        && ownersByPort.TryGetValue(endpoint.Port, out var candidates)
+                        && candidates.Length == 1)
+                    {
+                        owner = candidates[0].ProcessId;
+                        ownerInstance = candidates[0].CreatedAt;
+                        state = "read";
+                        reason = "address_mismatch_port_match";
+                        portFallback++;
+                    }
+                    else
+                    {
+                        // The listener may have closed between the two reads; the endpoint fact is
+                        // still reported, but the owner is not invented.
+                        state = "unreadable";
+                        reason = "owner_row_not_found";
+                        missingOwnerRow++;
+                    }
+                }
+                else if (family == "ipv6")
+                {
+                    state = "unsupported_family";
+                    reason = "ipv6_owner_table_not_supported";
+                    unsupportedFamily++;
+                }
+                else
+                {
+                    state = "unreadable";
+                    reason = "unknown_address_family";
                 }
 
                 items.Add(new ListenerObservation
                 {
                     Protocol = "tcp",
-                    Host = endpoint.Address.ToString(),
+                    Host = host,
                     Port = endpoint.Port,
+                    AddressFamily = family,
                     OwnerProcessId = owner,
+                    OwnerReadState = state,
+                    OwnerReadReason = reason,
+                    OwnerInstanceStartTime = ownerInstance,
                 });
             }
 
@@ -282,9 +468,19 @@ public sealed class SystemListenerSource : IListenerSource
                 errors.Add("监听端点所有者 PID 表不可读。");
             }
 
-            if (ownerGaps > 0)
+            if (unsupportedFamily > 0)
             {
-                errors.Add($"{ownerGaps} 个非 IPv4 监听端点的所有者 PID 未读取。");
+                errors.Add($"{unsupportedFamily} 个 IPv6 监听端点的所有者 PID 未读取（当前仅支持 IPv4 所有者表）。");
+            }
+
+            if (missingOwnerRow > 0)
+            {
+                errors.Add($"{missingOwnerRow} 个 IPv4 监听端点未在所有者表中定位（可能是采样竞态）。");
+            }
+
+            if (portFallback > 0)
+            {
+                errors.Add($"{portFallback} 个监听端点的所有者通过唯一端口匹配得出（地址表示不同）。");
             }
 
             return errors.Count == 0
@@ -310,15 +506,82 @@ public sealed class SystemListenerSource : IListenerSource
     }
 }
 
-/// <summary>Reads the local IPv4 TCP owner-PID listener table through a read-only Windows API.</summary>
+/// <summary>
+/// Reads the local IPv4 TCP owner listener table through a read-only Windows API. The owner-module
+/// listener table is tried first because it also carries the endpoint creation time; the classic
+/// owner-PID table is the fallback, and then the instance time stays unknown.
+/// </summary>
 internal static class NativeTcpOwners
 {
     private const int AfInet = 2;
     private const int TcpTableOwnerPidListener = 3;
+    private const int TcpTableOwnerModuleListener = 6;
+    private const int OwnerModuleRowSize = 160;
     private const uint ErrorInsufficientBuffer = 122;
     private const uint NoError = 0;
 
-    public static IReadOnlyDictionary<(string Host, int Port), int>? TryRead()
+    internal sealed record Owner(int ProcessId, DateTimeOffset? CreatedAt);
+
+    public static IReadOnlyDictionary<(string Host, int Port), Owner>? TryRead() =>
+        TryReadOwnerModule() ?? TryReadOwnerPid();
+
+    private static IReadOnlyDictionary<(string Host, int Port), Owner>? TryReadOwnerModule()
+    {
+        var size = 0;
+        var result = GetExtendedTcpTable(IntPtr.Zero, ref size, false, AfInet, TcpTableOwnerModuleListener, 0);
+        if (result != ErrorInsufficientBuffer && result != NoError)
+        {
+            return null;
+        }
+
+        if (size <= 0 || size > 64 * 1024 * 1024)
+        {
+            return null;
+        }
+
+        var buffer = Marshal.AllocHGlobal(size);
+        try
+        {
+            result = GetExtendedTcpTable(buffer, ref size, false, AfInet, TcpTableOwnerModuleListener, 0);
+            if (result != NoError)
+            {
+                return null;
+            }
+
+            var count = Marshal.ReadInt32(buffer);
+            // The owner-module row starts with a LARGE_INTEGER, so some Windows versions align the
+            // row array to 8 bytes (header 8) while others keep it at 4. Both layouts are detected
+            // from the returned buffer size instead of being assumed.
+            var tableStart = size >= 8 + (long)count * OwnerModuleRowSize ? 8 : 4;
+            if (count <= 0 || count > (size - tableStart) / OwnerModuleRowSize)
+            {
+                return new Dictionary<(string, int), Owner>();
+            }
+
+            var rows = IntPtr.Add(buffer, tableStart);
+            var table = new Dictionary<(string Host, int Port), Owner>();
+            for (var index = 0; index < count; index++)
+            {
+                var row = Marshal.PtrToStructure<MibTcpRowOwnerModule>(IntPtr.Add(rows, index * OwnerModuleRowSize));
+                var address = new IPAddress(row.LocalAddr).ToString();
+                var port = (ushort)IPAddress.NetworkToHostOrder((short)row.LocalPort);
+                table[(address, port)] = new Owner((int)row.OwningPid, FromFileTime(row.CreateTimestamp));
+            }
+
+            return table;
+        }
+        catch (Exception)
+        {
+            // Any layout/access surprise falls back to the classic owner-PID table.
+            return null;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    private static IReadOnlyDictionary<(string Host, int Port), Owner>? TryReadOwnerPid()
     {
         try
         {
@@ -345,19 +608,19 @@ internal static class NativeTcpOwners
 
                 var count = Marshal.ReadInt32(buffer);
                 var rowSize = Marshal.SizeOf<MibTcpRowOwnerPid>();
-                if (count <= 0 || count > size / rowSize)
+                if (rowSize <= 0 || count <= 0 || count > size / rowSize)
                 {
-                    return new Dictionary<(string, int), int>();
+                    return new Dictionary<(string, int), Owner>();
                 }
 
                 var rows = IntPtr.Add(buffer, sizeof(int));
-                var table = new Dictionary<(string Host, int Port), int>();
+                var table = new Dictionary<(string Host, int Port), Owner>();
                 for (var index = 0; index < count; index++)
                 {
                     var row = Marshal.PtrToStructure<MibTcpRowOwnerPid>(IntPtr.Add(rows, index * rowSize));
                     var address = new IPAddress(row.LocalAddr).ToString();
                     var port = (ushort)IPAddress.NetworkToHostOrder((short)row.LocalPort);
-                    table[(address, port)] = (int)row.OwningPid;
+                    table[(address, port)] = new Owner((int)row.OwningPid, null);
                 }
 
                 return table;
@@ -378,6 +641,25 @@ internal static class NativeTcpOwners
         }
     }
 
+    private static DateTimeOffset? FromFileTime(long value)
+    {
+        if (value <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var time = DateTimeOffset.FromFileTime(value);
+            // A listener cannot have been created in the future or before Windows existed.
+            return time > DateTimeOffset.UtcNow.AddDays(1) ? null : time;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct MibTcpRowOwnerPid
     {
@@ -387,6 +669,21 @@ internal static class NativeTcpOwners
         public uint RemoteAddr;
         public uint RemotePort;
         public uint OwningPid;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MibTcpRowOwnerModule
+    {
+        public uint State;
+        public uint LocalAddr;
+        public uint LocalPort;
+        public uint RemoteAddr;
+        public uint RemotePort;
+        public uint OwningPid;
+        public long CreateTimestamp;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+        public ulong[] OwningModuleInfo;
     }
 
     [DllImport("iphlpapi.dll", SetLastError = true)]
@@ -434,16 +731,110 @@ public sealed class SystemNetworkAdapterSource : INetworkAdapterSource
             : Collected<IReadOnlyList<NetworkAdapterObservation>>.Partial(items, "部分网络适配器不可读。", errors);
     }
 
-    private static NetworkAdapterObservation Describe(NetworkInterface nic) => new()
+    private static NetworkAdapterObservation Describe(NetworkInterface nic)
     {
-        Name = nic.Name,
-        Description = nic.Description,
-        Kind = KindOf(nic.NetworkInterfaceType),
-        OperationalStatus = nic.OperationalStatus.ToString().ToLowerInvariant(),
-        Addresses = nic.GetIPProperties().UnicastAddresses
-            .Select(address => $"{address.Address}/{address.PrefixLength}")
-            .ToArray(),
-    };
+        var unreadable = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        string? identity = string.IsNullOrWhiteSpace(nic.Id) ? null : nic.Id.Trim();
+        if (identity is null)
+        {
+            unreadable[ObservationFieldNames.InterfaceGuid] = "not_reported";
+        }
+
+        var properties = nic.GetIPProperties();
+        int? index = null;
+        try
+        {
+            index = properties.GetIPv4Properties()?.Index;
+        }
+        catch (NetworkInformationException)
+        {
+        }
+
+        if (index is null)
+        {
+            try
+            {
+                index = properties.GetIPv6Properties()?.Index;
+            }
+            catch (NetworkInformationException)
+            {
+            }
+        }
+
+        if (index is null)
+        {
+            unreadable[ObservationFieldNames.InterfaceIndex] = "interface_index_unavailable";
+        }
+
+        long? luid = null;
+        if (index is int knownIndex)
+        {
+            try
+            {
+                if (NativeInterfaceIdentity.TryIndexToLuid((uint)knownIndex, out var value))
+                {
+                    luid = value;
+                }
+                else
+                {
+                    unreadable[ObservationFieldNames.InterfaceLuid] = "convert_failed";
+                }
+            }
+            catch (Exception exception) when (exception is DllNotFoundException
+                or EntryPointNotFoundException
+                or BadImageFormatException)
+            {
+                unreadable[ObservationFieldNames.InterfaceLuid] = "not_supported";
+            }
+        }
+        else
+        {
+            unreadable[ObservationFieldNames.InterfaceLuid] = "interface_index_unavailable";
+        }
+
+        var unicast = properties.UnicastAddresses;
+        static string Format(UnicastIPAddressInformation address) => $"{address.Address}/{address.PrefixLength}";
+        var addresses = unicast.Select(Format).ToArray();
+        var ipv4 = unicast
+            .Where(address => address.Address.AddressFamily == AddressFamily.InterNetwork)
+            .Select(Format)
+            .ToArray();
+        var ipv6 = unicast
+            .Where(address => address.Address.AddressFamily == AddressFamily.InterNetworkV6)
+            .Select(Format)
+            .ToArray();
+
+        return new NetworkAdapterObservation
+        {
+            Name = nic.Name,
+            Description = nic.Description,
+            Kind = KindOf(nic.NetworkInterfaceType),
+            OperationalStatus = nic.OperationalStatus.ToString().ToLowerInvariant(),
+            InterfaceId = identity,
+            InterfaceIndex = index,
+            Luid = luid,
+            Addresses = addresses,
+            Ipv4Addresses = ipv4,
+            Ipv6Addresses = ipv6,
+            UnreadableFields = unreadable,
+        };
+    }
+
+    /// <summary>Read-only conversion of an interface index to its LUID; the index itself is not identity.</summary>
+    private static class NativeInterfaceIdentity
+    {
+        public static bool TryIndexToLuid(uint index, out long luid)
+        {
+            var result = ConvertInterfaceIndexToLuid(index, out var value);
+            // Preserve all 64 bits; NET_LUID is not a signed number.
+            luid = unchecked((long)value);
+            return result == 0 && value != 0;
+        }
+
+        [DllImport("iphlpapi.dll")]
+        private static extern uint ConvertInterfaceIndexToLuid(uint interfaceIndex, out ulong interfaceLuid);
+    }
 
     internal static string KindOf(NetworkInterfaceType type) => type switch
     {

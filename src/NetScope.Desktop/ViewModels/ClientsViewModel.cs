@@ -8,6 +8,9 @@ namespace NetScope.Desktop.ViewModels;
 /// <summary>Read-only multi-client view. It never offers stop, switch or takeover actions.</summary>
 public sealed class ClientsViewModel : ViewModelBase
 {
+    /// <summary>Stable ids of the two supported client cards; other rows are machine observations.</summary>
+    private static readonly string[] ClientIds = ["nice", "apex"];
+
     private readonly IClientStatusProvider? _provider;
     private readonly IDependencyExplainer? _explainer;
     private bool _hasProvider;
@@ -29,6 +32,9 @@ public sealed class ClientsViewModel : ViewModelBase
     }
 
     public ObservableCollection<ClientRow> Rows { get; } = new();
+
+    /// <summary>Machine-level TUN candidates and processes/listeners without a client attribution.</summary>
+    public ObservableCollection<ObservationRow> Observations { get; } = new();
 
     public ObservableCollection<DependencyRow> Dependencies { get; } = new();
 
@@ -57,6 +63,7 @@ public sealed class ClientsViewModel : ViewModelBase
         _demoMode = enabled;
         Interlocked.Increment(ref _refreshVersion);
         Rows.Clear();
+        Observations.Clear();
         Dependencies.Clear();
         SelectedDependency = null;
         HasProvider = enabled || _provider is not null;
@@ -78,7 +85,19 @@ public sealed class ClientsViewModel : ViewModelBase
                 : await Task.Run(() => explainer.ExplainAsync(clients, cancellationToken), cancellationToken).ConfigureAwait(true);
             if (version != Volatile.Read(ref _refreshVersion)) return;
             Rows.Clear();
-            foreach (var client in clients) Rows.Add(ToRow(client));
+            Observations.Clear();
+            foreach (var client in clients)
+            {
+                if (ClientIds.Contains(client.ClientId, StringComparer.Ordinal))
+                {
+                    Rows.Add(ToRow(client));
+                }
+                else
+                {
+                    Observations.Add(ToObservation(client));
+                }
+            }
+
             Dependencies.Clear();
             foreach (var explanation in explanations)
             {
@@ -109,14 +128,12 @@ public sealed class ClientsViewModel : ViewModelBase
             false => "未运行",
             _ => "未知",
         };
-        var endpoints = client.Endpoints.Count == 0
-            ? "未知"
-            : string.Join("；", client.Endpoints.Select(item => item.Role + " " + item.Display));
-        var tun = client.TunEnabled switch
+        var endpoints = ToEndpointsText(client.Endpoints);
+        var tun = client.TunOwnership switch
         {
-            true => "已检测到 TUN" + (string.IsNullOrWhiteSpace(client.TunAddress) ? "" : " · " + client.TunAddress),
-            false => "未检测到 TUN",
-            _ => "未知",
+            "unconfirmed" => "归属未确认",
+            "unknown" => "归属未知",
+            _ => "归属未知",
         };
         var provenance = string.Join("；", client.Evidence
             .Select(item => ProvenanceText(item.Provenance))
@@ -129,25 +146,192 @@ public sealed class ClientsViewModel : ViewModelBase
                 + " · 文件修改 " + (item.FileModifiedAt?.ToLocalTime().ToString("MM-dd HH:mm:ss") ?? "未知")
                 + "\nSHA-256 " + (item.ContentHash ?? "未知")
                 + (item.Gaps.Count == 0 ? "" : "\n证据缺口：" + string.Join("；", item.Gaps)),
-            item.Valid switch
-            {
-                true when item.Gaps.Count > 0 => "已解析（存在缺口）",
-                true => "已解析",
-                false => "无效：" + (item.ValidityReason ?? "原因未知"),
-                _ => "未验证",
-            },
+            ValidityText(item),
+            item.Notices.Count == 0
+                ? ""
+                : "配置提示（不计为缺口）：" + string.Join("；", item.Notices),
             item.SourcePath)).ToArray();
         return new ClientRow(
             client.ClientId,
             client.DisplayName,
             running,
             client.Version ?? "未知",
+            ToProcessesText(client.Processes),
             endpoints,
             tun,
             string.IsNullOrEmpty(provenance) ? "无配置证据" : provenance,
             client.Gaps.Count == 0 ? "无" : string.Join("；", client.Gaps),
             client.Notes.Count == 0 ? "无" : string.Join("；", client.Notes),
             evidence);
+    }
+
+    private static ObservationRow ToObservation(ClientStatus status)
+    {
+        var kind = status.ClientId switch
+        {
+            "system_tun" => "系统级",
+            "unattributed_core" => "未归属内核",
+            "unknown_listener" => "未识别监听",
+            _ => "其他观察",
+        };
+
+        var summary = status.ClientId switch
+        {
+            "system_tun" => ToTunCandidatesText(status),
+            "unattributed_core" => status.Processes.Count == 0
+                ? "没有未归属的内核候选。"
+                : string.Join("\n", status.Processes.Select(process => ToProcessText(process, includeRole: false))),
+            _ => status.Endpoints.Count == 0
+                ? "没有未归属的监听端点。"
+                : string.Join("\n", status.Endpoints.Select(ToUnattributedEndpointText)),
+        };
+
+        return new ObservationRow(
+            status.ClientId,
+            status.DisplayName,
+            kind,
+            summary,
+            status.Notes.Count == 0 ? "无" : string.Join("；", status.Notes),
+            status.Gaps.Count == 0 ? "无" : string.Join("；", status.Gaps));
+    }
+
+    private static string ToTunCandidatesText(ClientStatus status)
+    {
+        if (status.TunCandidates.Count == 0)
+        {
+            return status.TunEnabled switch
+            {
+                false => "未观测到启用的 TUN 候选适配器。",
+                _ => "TUN 候选未知（适配器列表不可读或只读取了一部分）。",
+            };
+        }
+
+        var lines = new List<string>();
+        if (!string.IsNullOrWhiteSpace(status.TunAddress))
+        {
+            lines.Add("地址分族：" + status.TunAddress);
+        }
+
+        lines.AddRange(status.TunCandidates.Select(candidate =>
+        {
+            var identity = candidate.Identity ?? "GUID 未读取";
+            var index = candidate.InterfaceIndex is int value ? value.ToString() : "未读取";
+            var luid = candidate.Luid is long luidValue ? "0x" + luidValue.ToString("x16") : "未读取";
+            return $"{candidate.Name}（{candidate.OperationalStatus}）· 依据 {candidate.Reason}"
+                + $"\n  标识 {identity} · ifIndex {index} · LUID {luid}"
+                + $"\n  IPv4 {FamilyText(candidate.Ipv4Addresses)} · IPv6 {FamilyText(candidate.Ipv6Addresses)}"
+                + (candidate.FieldGaps.Count == 0 ? "" : "\n  字段读取：" + string.Join("、", candidate.FieldGaps));
+        }));
+        return string.Join("\n", lines);
+    }
+
+    private static string ToProcessesText(IReadOnlyList<ClientProcess> processes)
+    {
+        if (processes.Count == 0)
+        {
+            return "未观测到该客户端的进程（配置存在不代表已加载）。";
+        }
+
+        return string.Join("\n", processes.Select(process => ToProcessText(process, includeRole: true)));
+    }
+
+    private static string ToProcessText(ClientProcess process, bool includeRole)
+    {
+        var role = process.Role == "ui" ? "界面" : "内核";
+        var parts = new List<string>();
+        if (includeRole)
+        {
+            parts.Add(role);
+        }
+
+        parts.Add("PID " + process.ProcessId);
+        if (!string.IsNullOrWhiteSpace(process.Name))
+        {
+            parts.Add(process.Name!);
+        }
+
+        parts.Add("启动 " + (process.StartTime?.ToLocalTime().ToString("MM-dd HH:mm:ss") ?? "未知"));
+        if (process.Role == "core")
+        {
+            parts.Add(process.Association switch
+            {
+                "parent_child" => "关联 父子进程",
+                "same_install_directory" => "关联 同安装目录",
+                _ => "关联 未确认",
+            });
+        }
+
+        if (!string.IsNullOrWhiteSpace(process.Version))
+        {
+            parts.Add("版本 " + process.Version);
+        }
+
+        var lines = new List<string> { string.Join(" · ", parts) };
+        if (process.FieldGaps.Count > 0)
+        {
+            lines.Add("  字段读取：" + string.Join("、", process.FieldGaps));
+        }
+
+        if (!string.IsNullOrWhiteSpace(process.ExecutablePath))
+        {
+            lines.Add("  路径：" + process.ExecutablePath);
+        }
+
+        if (!string.IsNullOrWhiteSpace(process.AssociationEvidence))
+        {
+            lines.Add("  依据：" + process.AssociationEvidence);
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    private static string ToEndpointsText(IReadOnlyList<ClientEndpoint> endpoints)
+    {
+        if (endpoints.Count == 0)
+        {
+            return "无（磁盘配置中的端口不当作实际监听）";
+        }
+
+        return string.Join("\n", endpoints.Select(endpoint =>
+        {
+            var owner = endpoint.OwnerProcessId is int pid
+                ? $"所有者 PID {pid}" + (string.IsNullOrWhiteSpace(endpoint.OwnerProcessName) ? "" : " " + endpoint.OwnerProcessName)
+                    + "（读取 " + (endpoint.OwnerReadState ?? "unknown") + "）"
+                : "所有者未读取（" + (endpoint.OwnerReadReason ?? endpoint.OwnerReadState ?? "unknown") + "）";
+            var attribution = endpoint.Attribution switch
+            {
+                "ui" => "UI 进程直接监听",
+                "core" => "内核进程监听",
+                _ => "归属待确认",
+            };
+            return $"listen {endpoint.Display} [{endpoint.AddressFamily}] · {owner} · {attribution}";
+        }));
+    }
+
+    private static string ToUnattributedEndpointText(ClientEndpoint endpoint)
+    {
+        var owner = endpoint.OwnerProcessId is int pid
+            ? $"所有者 PID {pid}" + (string.IsNullOrWhiteSpace(endpoint.OwnerProcessName) ? "" : " " + endpoint.OwnerProcessName)
+            : "所有者未读取（" + (endpoint.OwnerReadReason ?? endpoint.OwnerReadState ?? "unknown") + "）";
+        return $"listen {endpoint.Display} [{endpoint.AddressFamily}] · {owner}"
+            + (string.IsNullOrWhiteSpace(endpoint.AttributionEvidence) ? "" : "\n  " + endpoint.AttributionEvidence);
+    }
+
+    private static string FamilyText(IReadOnlyList<string> addresses) =>
+        addresses.Count == 0 ? "未报告" : string.Join("、", addresses);
+
+    private static string ValidityText(ClientConfigEvidence item)
+    {
+        var coverage = item.Coverage.Count == 0
+            ? ""
+            : " · 字段覆盖 " + item.Coverage.Count(pair => pair.Value == ConfigFactCoverage.Present) + "/" + item.Coverage.Count;
+        return item.Valid switch
+        {
+            true when item.Gaps.Count > 0 => "已解析（存在缺口）" + coverage,
+            true => "已解析" + coverage,
+            false => "无效：" + (item.ValidityReason ?? "原因未知"),
+            _ => "未验证",
+        };
     }
 
     private static string ProvenanceText(ConfigProvenance provenance) => provenance switch

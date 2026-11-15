@@ -24,8 +24,13 @@ public sealed class SessionLifecycleTests
         {
             var cycle = await session.CollectOnceAsync(CancellationToken.None);
             home.ApplyCycle(cycle);
-            Assert.Equal("当前样本正常", home.HealthTitle);
+            // T07-R2: a complete local sample with zero probe results is not "sample normal".
+            // Collection health is complete, but network verification is still missing.
+            Assert.Equal("采集完整", home.CollectionHealthTitle);
+            Assert.Equal("尚未进行外部验证", home.VerificationTitle);
+            Assert.NotEqual(UiText.OkBrush, home.HealthTone);
             Assert.Contains("不代表全网正常", home.HealthDetail);
+            Assert.Contains("未测", home.VerificationPathsText);
             Assert.Contains(home.Domains, row => row.Name == "interfaces" && row.StatusText == "正常");
         }
         finally
@@ -260,7 +265,9 @@ public sealed class SessionLifecycleTests
         try
         {
             home.ApplyCycle(await session.CollectOnceAsync(CancellationToken.None));
-            Assert.Equal("当前样本正常", home.HealthTitle);
+            Assert.Equal("采集完整", home.CollectionHealthTitle);
+            Assert.Equal("尚未进行外部验证", home.VerificationTitle);
+            Assert.NotEqual("当前样本正常", home.HealthTitle);
 
             session.Pause();
             home.ApplySessionState();

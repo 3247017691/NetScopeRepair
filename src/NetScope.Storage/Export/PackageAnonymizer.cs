@@ -19,7 +19,7 @@ internal sealed class PackageAnonymizer
         "schema_version", "payload_version", "transformation_version", "transform_version",
         "event_id", "event_ids", "session_id", "boot_id", "incident_id", "snapshot_id", "snapshot_ids",
         "probe_id", "probe_ids", "probe_group_id", "diagnosis_id", "diagnosis_ids",
-        "evidence_id", "evidence_ids", "counter_evidence_ids", "missing_evidence",
+        "evidence_id", "evidence_ids", "counter_evidence_ids",
         "repair_plan_id", "transaction_id", "proxy_endpoint_id", "observation_window_id",
         "request_options_key", "target_id", "source_event_ids", "interface_guid", "luid",
         "if_index", "rule_id", "rule_version", "address_family", "family", "status", "event_type",
@@ -119,8 +119,71 @@ internal sealed class PackageAnonymizer
         @"(?<host>[A-Za-z0-9][A-Za-z0-9.\-]*\.(?:corp|local|lan|internal|home|localdomain))(?::(?<port>\d{1,5}))?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    /// <summary>
+    /// A device/interface name quoted after an explicit entity keyword, for example
+    /// <c>adapter "Ethernet 2"</c> or <c>interface 'vEthernet (Default Switch)'</c>. Error text is
+    /// the only place such a name can appear, so the keyword plus quoting is the structure that
+    /// makes it redactable instead of relying on the name already being listed in
+    /// <c>interfaces.value</c>.
+    /// </summary>
+    private static readonly Regex NamedDeviceQuoted = new(
+        @"(?<prefix>(?i:\b(?:adapter|interface|nic|switch|filter|port|device)\b)|网卡|接口|适配器|交换机|过滤器|设备)\s*(?:(?i:name|named|called)\s*|名称\s*[:：]?\s*|名为\s*)?(?<quote>[""'])(?<name>[^""'\r\n]{1,80})\k<quote>",
+        RegexOptions.Compiled);
+
+    /// <summary>An unquoted multi-part device name introduced by an entity keyword, e.g. <c>interface Synthetic-Uplink-A</c>.</summary>
+    private static readonly Regex NamedDeviceUnquoted = new(
+        @"(?<prefix>(?i:\b(?:adapter|interface|nic|device|switch|filter|port)\b)\s+|(?:网卡|接口|适配器|交换机|过滤器|设备)\s*[:：]?\s*)(?<name>[A-Za-z][A-Za-z0-9]*(?:[-_.][A-Za-z0-9]+){1,8})(?![\w.\-])",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// Composite adapter/switch/filter names that are identity on their own, including nested
+    /// vendor combinations such as <c>vEthernet (WSL (Hyper-V firewall))</c> or a virtual switch
+    /// extension filter.
+    /// </summary>
+    private static readonly Regex CompositeDeviceToken = new(
+        @"(?i)(?<![\w.\-/])(?:" +
+        @"(?:vEthernet|vSwitch|vNIC)(?:\s*\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\))?(?:\s*#?\d+)?" +
+        @"|WAN\s+Miniport(?:\s*\([^)]*\))?" +
+        @"|(?:Hyper-V\s+)?Virtual\s+(?:Ethernet\s+|Switch\s+)?(?:Adapter|Switch|Filter)(?:\s+Extension)?(?:\s+Filter)?(?:\s*#?\d+)?" +
+        @"|Microsoft\s+Wi-?Fi\s+Direct\s+Virtual\s+Adapter(?:\s*#?\d+)?" +
+        @"|Npcap\s+Loopback\s+Adapter" +
+        @"|TAP-Windows\s+Adapter(?:\s+V\d+)?" +
+        @"|(?:WireGuard|Tailscale|Wintun|OpenVPN|ProtonVPN|Mullvad)\s+(?:Tunnel|Adapter)" +
+        @"|Loopback\s+Pseudo-Interface\s+\d+" +
+        @"|(?:Ethernet|Wi-?Fi|WLAN|Local\s+Area\s+Connection|Bluetooth\s+Network\s+Connection)(?:\s+\d+)?" +
+        @"|(?:以太网|本地连接|无线网络连接|虚拟交换机|虚拟网卡|网络适配器|网卡|交换机|过滤器)(?:\s*\d+)?" +
+        @")(?![\w.\-])", RegexOptions.Compiled);
+
+    /// <summary>A quoted token whose content contains a device word, e.g. <c>'Nice WFP Filter'</c>.</summary>
+    private static readonly Regex QuotedToken = new(
+        @"(?<quote>[""'])(?<name>[^""'\r\n]{2,80}?)\k<quote>", RegexOptions.Compiled);
+
+    /// <summary>A capitalized multi-word filter/switch name such as <c>Default Switch</c> or <c>Nice WFP Filter</c>.</summary>
+    private static readonly Regex CombinedCapitalizedDevice = new(
+        @"(?<![\w.\-/])(?:[A-Z][\w-]*\s+){1,3}(?:Adapter|Miniport|Switch|Filter|Tunnel)(?![\w.\-])",
+        RegexOptions.Compiled);
+
+    private static readonly Regex AliasLabel = new(
+        @"^(?:user|device|path|private-host|target)-[A-Z]{1,4}$", RegexOptions.Compiled);
+
+    private static readonly string[] DeviceWords =
+    {
+        "adapter", "miniport", "switch", "filter", "tunnel", "ethernet", "wi-fi", "wifi", "wlan",
+        "vethernet", "vswitch", "vnic", "hyper-v", "npcap", "tap-windows", "wireguard", "tailscale",
+        "wintun", "loopback", "以太网", "本地连接", "无线网络连接", "网卡", "接口", "交换机", "过滤器",
+        "适配器", "虚拟",
+    };
+
+    private static readonly HashSet<string> IdentityStopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "unknown", "none", "null", "true", "false", "default", "synthetic", "adapter", "interface",
+        "miniport", "switch", "filter", "tunnel", "device", "port", "网卡", "接口", "适配器",
+    };
+
     private readonly Dictionary<string, string> _aliases = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _identityReplacements = new(StringComparer.Ordinal);
+    private readonly List<string> _replacementKeys = new();
+    private Regex? _replacementPattern;
     private readonly Dictionary<string, HashSet<string>> _usedLabels = new(StringComparer.Ordinal);
     private readonly HashSet<string> _aliasValues = new(StringComparer.Ordinal);
     private readonly HashSet<string> _syntheticAddresses = new(StringComparer.Ordinal);
@@ -145,6 +208,77 @@ internal sealed class PackageAnonymizer
 
     /// <summary>Redacts free text such as an event source without changing identity fields.</summary>
     public string RedactText(string value) => string.IsNullOrEmpty(value) ? value : RedactValue(value, "text", string.Empty);
+
+    /// <summary>
+    /// First pass over the whole package. Registers user, device and interface identities before
+    /// any value is rewritten, so a name that only appears in an error message, or appears in a
+    /// different traversal order than the structured field, still resolves to the same stable
+    /// alias instead of leaking as free text.
+    /// </summary>
+    public void Precollect(JsonNode? node) => WalkIdentities(node, string.Empty);
+
+    /// <summary>Pre-collects identities from a free-text value such as an event source.</summary>
+    public void PrecollectText(string? value)
+    {
+        if (!string.IsNullOrEmpty(value)) ScanIdentityText(value);
+    }
+
+    private void WalkIdentities(JsonNode? node, string path)
+    {
+        switch (node)
+        {
+            case null:
+                return;
+            case JsonObject obj:
+                foreach (var property in obj)
+                {
+                    var key = property.Key;
+                    var childPath = path.Length == 0 ? key : path + "/" + key;
+                    if (ProtectedKeys.Contains(key)) continue;
+                    var lowerKey = key.ToLowerInvariant();
+                    if (IsInterfaceIdentity(lowerKey, childPath))
+                    {
+                        if (property.Value is JsonValue interfaceValue
+                            && interfaceValue.TryGetValue<string>(out var interfaceText))
+                        {
+                            RegisterDeviceIdentity(interfaceText);
+                        }
+
+                        continue;
+                    }
+
+                    if (UserKeys.Contains(lowerKey))
+                    {
+                        if (property.Value is JsonValue userValue && userValue.TryGetValue<string>(out var userText))
+                            RegisterUserIdentity(userText);
+                        continue;
+                    }
+
+                    if (DeviceKeys.Contains(lowerKey))
+                    {
+                        if (property.Value is JsonValue deviceValue && deviceValue.TryGetValue<string>(out var deviceText))
+                            RegisterDeviceIdentity(deviceText);
+                        continue;
+                    }
+
+                    WalkIdentities(property.Value, childPath);
+                }
+
+                return;
+            case JsonArray array:
+                var index = 0;
+                foreach (var item in array)
+                {
+                    WalkIdentities(item, path + "[" + index.ToString(CultureInfo.InvariantCulture) + "]");
+                    index++;
+                }
+
+                return;
+            case JsonValue value when value.TryGetValue<string>(out var text):
+                ScanIdentityText(text);
+                return;
+        }
+    }
 
     private JsonNode? RedactNode(JsonNode? node, string key, string path)
     {
@@ -222,34 +356,25 @@ internal sealed class PackageAnonymizer
 
         if (UserKeys.Contains(lowerKey))
         {
-            Ledger.Record(RedactionCategories.UserName);
-            return Alias(RedactionCategories.UserName, text.Trim(), "user");
+            return RedactUserIdentity(text);
         }
 
         if (DeviceKeys.Contains(lowerKey))
         {
-            Ledger.Record(RedactionCategories.DeviceName);
-            return Alias(RedactionCategories.DeviceName, text.Trim(), "device");
+            return RedactDeviceValue(text);
         }
 
         if (IsInterfaceIdentity(lowerKey, path))
         {
             // Interface name/description/alias and wireless SSID are device identity even when
-            // the generic key name ("name", "description") is used elsewhere in a payload.
-            var original = text.Trim();
-            var deviceAlias = Alias(RedactionCategories.DeviceName, original, "device");
-            if (original.Length >= 4)
-            {
-                // Later free text (diagnosis summary, probe notice) can quote the same identity;
-                // replace the exact known value rather than leaving it in prose.
-                _identityReplacements[original] = deviceAlias;
-            }
-
-            Ledger.Record(RedactionCategories.DeviceName);
-            return deviceAlias;
+            // the generic key name ("name", "description") is used elsewhere in a payload. The
+            // same identity may already be known from a different event (pre-collection), so the
+            // alias must be the same one used when it was registered first-seen.
+            return RedactDeviceValue(text);
         }
 
         var result = ReplaceKnownIdentities(text);
+        result = RedactDeviceNames(result);
         if (IsProxyServerKey(lowerKey))
         {
             result = RedactProxyServerValue(result);
@@ -309,14 +434,165 @@ internal sealed class PackageAnonymizer
 
     private string ReplaceKnownIdentities(string value)
     {
-        if (_identityReplacements.Count == 0) return value;
-        var result = value;
-        foreach (var pair in _identityReplacements.OrderByDescending(item => item.Key.Length))
+        if (_replacementKeys.Count == 0) return value;
+        _replacementPattern ??= BuildReplacementPattern();
+        return _replacementPattern.Replace(value, match => _identityReplacements[match.Value]);
+    }
+
+    private Regex BuildReplacementPattern()
+    {
+        // Longest first so "Ethernet 2" wins over a registered "Ethernet"; the lookarounds keep a
+        // short user or device name from being replaced inside an unrelated larger word.
+        var alternatives = _replacementKeys
+            .OrderByDescending(key => key.Length)
+            .Select(Regex.Escape);
+        return new Regex(
+            @"(?<![A-Za-z0-9_])(?:" + string.Join("|", alternatives) + @")(?![A-Za-z0-9_])",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    }
+
+    private void RegisterIdentityReplacement(string original, string alias)
+    {
+        if (original.Length < 2 || original.Length > 120) return;
+        if (IdentityStopWords.Contains(original) || IsAliasLabel(original)) return;
+        if (_identityReplacements.TryGetValue(original, out var existing) && existing == alias) return;
+        _identityReplacements[original] = alias;
+        if (!_replacementKeys.Contains(original, StringComparer.Ordinal)) _replacementKeys.Add(original);
+        _replacementPattern = null;
+    }
+
+    private void RegisterDeviceIdentity(string original)
+    {
+        var trimmed = original.Trim();
+        if (trimmed.Length == 0 || IdentityStopWords.Contains(trimmed) || IsAliasLabel(trimmed)) return;
+        var alias = Alias(RedactionCategories.DeviceName, trimmed, "device");
+        RegisterIdentityReplacement(trimmed, alias);
+    }
+
+    private void RegisterUserIdentity(string original)
+    {
+        var trimmed = original.Trim();
+        if (trimmed.Length < 3 || IdentityStopWords.Contains(trimmed) || IsAliasLabel(trimmed)) return;
+        var alias = Alias(RedactionCategories.UserName, trimmed, "user");
+        RegisterIdentityReplacement(trimmed, alias);
+    }
+
+    private string RedactUserIdentity(string text)
+    {
+        var trimmed = text.Trim();
+        if (IsAliasLabel(trimmed)) return trimmed;
+        var alias = Alias(RedactionCategories.UserName, trimmed, "user");
+        if (trimmed.Length >= 3) RegisterIdentityReplacement(trimmed, alias);
+        Ledger.Record(RedactionCategories.UserName);
+        return alias;
+    }
+
+    private string RedactDeviceValue(string text)
+    {
+        var trimmed = text.Trim();
+        if (IsAliasLabel(trimmed)) return trimmed;
+        var alias = Alias(RedactionCategories.DeviceName, trimmed, "device");
+        RegisterIdentityReplacement(trimmed, alias);
+        Ledger.Record(RedactionCategories.DeviceName);
+        return alias;
+    }
+
+    private static bool IsAliasLabel(string value) => AliasLabel.IsMatch(value);
+
+    private static bool ContainsDeviceWord(string value)
+    {
+        var lower = value.ToLowerInvariant();
+        return DeviceWords.Any(word => lower.Contains(word, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Registers every identity that can be recognised structurally inside one free-text value:
+    /// path user/UNC device parts and adapter/switch/filter names quoted or introduced by an
+    /// entity keyword. Pre-collection runs this over the whole package before redaction, so the
+    /// same name maps to one alias no matter which event mentions it first.
+    /// </summary>
+    private void ScanIdentityText(string text)
+    {
+        foreach (var pathMatch in ExtendedPath.Matches(text).Cast<Match>()
+                     .Concat(UncPath.Matches(text).Cast<Match>())
+                     .Concat(WindowsPath.Matches(text).Cast<Match>()))
         {
-            result = result.Replace(pair.Key, pair.Value, StringComparison.Ordinal);
+            RegisterPathIdentities(pathMatch.Value);
         }
 
+        foreach (Match match in NamedDeviceQuoted.Matches(text))
+            RegisterDeviceIdentity(match.Groups["name"].Value);
+
+        foreach (Match match in NamedDeviceUnquoted.Matches(text))
+            RegisterDeviceIdentity(match.Groups["name"].Value);
+
+        foreach (Match match in CompositeDeviceToken.Matches(text))
+            RegisterDeviceIdentity(match.Value);
+
+        foreach (Match match in QuotedToken.Matches(text))
+        {
+            var name = match.Groups["name"].Value;
+            if (ContainsDeviceWord(name)) RegisterDeviceIdentity(name);
+        }
+
+        foreach (Match match in CombinedCapitalizedDevice.Matches(text))
+            RegisterDeviceIdentity(match.Value);
+    }
+
+    /// <summary>
+    /// Replaces adapter, virtual switch and filter names that exist only in free text (typically
+    /// a collector error or a diagnosis summary). Replacing by structure is deliberate: matching
+    /// only the names already listed under <c>interfaces.value</c> misses names Windows reports
+    /// after enumeration itself failed, and it makes the result depend on traversal order.
+    /// </summary>
+    private string RedactDeviceNames(string value)
+    {
+        var result = NamedDeviceQuoted.Replace(value, match =>
+        {
+            var name = match.Groups["name"].Value.Trim();
+            if (!LooksLikeDeviceName(name)) return match.Value;
+            var alias = AliasDeviceToken(name);
+            var quote = match.Groups["quote"].Value;
+            var prefixLength = match.Groups["prefix"].Length;
+            var quoteIndex = match.Groups["quote"].Index - match.Index;
+            return match.Groups["prefix"].Value + match.Value[prefixLength..quoteIndex] + quote + alias + quote;
+        });
+
+        result = NamedDeviceUnquoted.Replace(result, match =>
+        {
+            var name = match.Groups["name"].Value;
+            if (!LooksLikeDeviceName(name)) return match.Value;
+            return match.Groups["prefix"].Value + AliasDeviceToken(name);
+        });
+
+        result = CompositeDeviceToken.Replace(result, match => AliasDeviceToken(match.Value));
+        result = QuotedToken.Replace(result, match =>
+        {
+            var name = match.Groups["name"].Value;
+            if (!ContainsDeviceWord(name)) return match.Value;
+            var alias = AliasDeviceToken(name.Trim());
+            return match.Groups["quote"].Value + alias + match.Groups["quote"].Value;
+        });
+        result = CombinedCapitalizedDevice.Replace(result, match => AliasDeviceToken(match.Value));
         return result;
+    }
+
+    private string AliasDeviceToken(string original)
+    {
+        var trimmed = original.Trim();
+        if (trimmed.Length == 0 || IsAliasLabel(trimmed) || IdentityStopWords.Contains(trimmed)) return original;
+        var alias = Alias(RedactionCategories.DeviceName, trimmed, "device");
+        RegisterIdentityReplacement(trimmed, alias);
+        Ledger.Record(RedactionCategories.DeviceName);
+        return alias;
+    }
+
+    private static bool LooksLikeDeviceName(string value)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Length is < 2 or > 120) return false;
+        if (trimmed.Any(char.IsControl)) return false;
+        return true;
     }
 
     private static bool IsSubscriptionKey(string key) =>
@@ -494,7 +770,9 @@ internal sealed class PackageAnonymizer
         if (extendedUnc.Success)
         {
             var extendedDevice = extendedUnc.Groups["host"].Value;
-            if (extendedDevice.Length > 0) Alias(RedactionCategories.DeviceName, extendedDevice, "device");
+            if (extendedDevice.Length > 0)
+                RegisterIdentityReplacement(extendedDevice,
+                    Alias(RedactionCategories.DeviceName, extendedDevice, "device"));
         }
         else
         {
@@ -502,14 +780,16 @@ internal sealed class PackageAnonymizer
             if (unc.Success)
             {
                 var device = unc.Value.Trim('\\');
-                if (device.Length > 0) Alias(RedactionCategories.DeviceName, device, "device");
+                if (device.Length > 0)
+                    RegisterIdentityReplacement(device,
+                        Alias(RedactionCategories.DeviceName, device, "device"));
             }
         }
 
         var user = PathUser.Match(path);
         if (!user.Success) user = UnixPathUser.Match(path);
         if (user.Success && !string.IsNullOrWhiteSpace(user.Groups["name"].Value))
-            Alias(RedactionCategories.UserName, user.Groups["name"].Value, "user");
+            RegisterUserIdentity(user.Groups["name"].Value);
     }
 
     private string RedactAddresses(string value, bool network)

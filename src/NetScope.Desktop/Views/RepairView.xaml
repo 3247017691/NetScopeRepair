@@ -1,0 +1,269 @@
+﻿<UserControl x:Class="NetScope.Desktop.Views.RepairView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="900" d:DesignWidth="1200"
+             Background="Transparent">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="0,0,6,18">
+            <!-- Boundary -->
+            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="修复计划、确认与恢复" Style="{StaticResource H2}" />
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,5,0,0" TextWrapping="Wrap"
+                               Text="本页只生成计划预览并展示事务状态；Desktop 不直接写网络。真实执行入口在本交付中保持 Disabled：无可信签名部署、无平台实验验证、无 broker 进程。UAC 是权限授予，不代替逐动作同意。" />
+                    <TextBlock Text="{Binding GateText}" Foreground="{StaticResource Warn}" FontWeight="SemiBold"
+                               Margin="0,8,0,0" />
+                    <TextBlock Text="{Binding GateReasonsText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="380" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Plan / actions -->
+                <StackPanel Grid.Column="0">
+                    <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="计划预览" Style="{StaticResource H2}" />
+                                    <TextBlock Text="{Binding PlanSummaryText}" Style="{StaticResource Caption}"
+                                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="生成/刷新预览" Style="{StaticResource QuietButton}"
+                                        Command="{Binding PreviewCommand}" VerticalAlignment="Top" />
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,10,0,8" />
+                            <TextBlock Text="{Binding TargetText}" Style="{StaticResource MonoSubtle}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding PlanTtlText}" Style="{StaticResource Caption}" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding DigestText}" Style="{StaticResource MonoSubtle}" TextWrapping="Wrap"
+                                       Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding NoOpSummaryText}" Style="{StaticResource Caption}"
+                                       Foreground="{StaticResource Warn}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding Actions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      IsEnabled="{Binding CanSelect}" VerticalAlignment="Top"
+                                                      Margin="0,2,10,0" />
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding KindText}" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Ink}" />
+                                                <TextBlock Text="{Binding IdentityText}" Style="{StaticResource MonoSubtle}"
+                                                           TextWrapping="Wrap" Margin="0,3,0,0" />
+                                                <TextBlock Style="{StaticResource Caption}" Margin="0,3,0,0"
+                                                           TextWrapping="Wrap">
+                                                    <Run Text="{Binding Ipv4Text, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding StoreText, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <Border Grid.Column="2" Style="{StaticResource Pill}" VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" />
+                                            </Border>
+                                        </Grid>
+
+                                        <Border Background="{StaticResource SubtleSurface}" CornerRadius="5"
+                                                Padding="9,7" Margin="0,8,0,0">
+                                            <StackPanel>
+                                                <TextBlock Style="{StaticResource Mono}" TextWrapping="Wrap">
+                                                    <Run Text="before " Foreground="{StaticResource Muted}" />
+                                                    <Run Text="{Binding BeforeText, Mode=OneWay}" />
+                                                    <Run Text="  →  after " Foreground="{StaticResource Muted}" />
+                                                    <Run Text="{Binding DesiredText, Mode=OneWay}" Foreground="{StaticResource Accent}" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding TtlText}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                <TextBlock Text="{Binding DependencyText}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                <TextBlock Text="{Binding EvidenceText}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                <TextBlock Text="{Binding RiskText}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                <TextBlock Text="{Binding EligibilityText}" Style="{StaticResource Caption}"
+                                                           Margin="0,2,0,0" />
+                                                <TextBlock Text="{Binding BlockingText}" Style="{StaticResource Caption}"
+                                                           Foreground="{StaticResource Bad}" TextWrapping="Wrap"
+                                                           Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Style="{StaticResource SectionCard}" Margin="0,4,0,0"
+                            Visibility="{Binding ShowNoOp, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <TextBlock Text="跳过的字段（no_op）" Style="{StaticResource H2}" />
+                            <TextBlock Text="{Binding NoOpSummaryText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                            <ItemsControl ItemsSource="{Binding NoOpFields}" Margin="0,6,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0">
+                                            <Run Text="{Binding FieldText, Mode=OneWay}" FontWeight="SemiBold" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding StoreText, Mode=OneWay}" />
+                                            <Run Text=" · 现值 " />
+                                            <Run Text="{Binding ValueText, Mode=OneWay}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding ReasonText, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Right column: confirmation, progress, business, recovery -->
+                <StackPanel Grid.Column="2">
+                    <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="确认与执行" Style="{StaticResource H2}" />
+                            <TextBlock Text="{Binding SelectionSummary}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                       Text="逐动作默认未选中；确认后才进入 UAC 流程。目标漂移、计划过期、输入包不可信或 no_op 时执行按钮禁用。" />
+                            <Button Content="确认所选动作并请求执行" Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding ExecuteCommand}" Margin="0,9,0,0" />
+                            <Button Content="取消当前事务" Style="{StaticResource QuietButton}"
+                                    Command="{Binding CancelCommand}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding TransactionStateText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="事务进度（分层结果）" Style="{StaticResource H2}" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Text="命令/API 调用、配置读回、技术探测、用户业务复测四层分开；committed 只表示预定技术验收通过，不代表业务恢复。" />
+                            <ItemsControl ItemsSource="{Binding Layers}" Margin="0,7,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding BadgeBackground}" CornerRadius="5"
+                                                Padding="8,6" Margin="0,0,0,5">
+                                            <StackPanel>
+                                                <TextBlock Style="{StaticResource Caption}" FontWeight="SemiBold">
+                                                    <Run Text="{Binding Name, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding StatusText, Mode=OneWay}" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
+                                                           TextWrapping="Wrap" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding FunnelText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="业务复测（低权主进程）" Style="{StaticResource H2}" />
+                                <Button Grid.Column="1" Content="开始观察" Style="{StaticResource QuietButton}"
+                                        Command="{Binding StartBusinessObservationCommand}" />
+                            </Grid>
+                            <TextBlock Text="{Binding BusinessText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <ItemsControl ItemsSource="{Binding BusinessTargets}" Margin="0,6,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Style="{StaticResource Caption}" Margin="0,2,0,0" TextWrapping="Wrap">
+                                            <Run Text="{Binding TargetText, Mode=OneWay}" FontWeight="SemiBold" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding ResultText, Mode=OneWay}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding Detail, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding BusinessNotice}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SectionCard}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="恢复（不依赖互联网）" Style="{StaticResource H2}" />
+                                <Button Grid.Column="1" Content="扫描未终结事务" Style="{StaticResource QuietButton}"
+                                        Command="{Binding ScanRecoveryCommand}" />
+                            </Grid>
+                            <TextBlock Text="{Binding RecoveryNotice}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <ItemsControl ItemsSource="{Binding RecoveryItems}" Margin="0,6,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SubtleSurface}" CornerRadius="5"
+                                                Padding="8,6" Margin="0,0,0,5">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding TransactionId}" Style="{StaticResource Mono}" />
+                                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                    <Run Text="{Binding StateText, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding RestorableText, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding UncertainText, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding AuthorizationText, Mode=OneWay}" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding RecoveryPlanId}" Style="{StaticResource MonoSubtle}"
+                                                           TextWrapping="Wrap" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding ExitTransactionText}" Style="{StaticResource Caption}"
+                                       TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="{Binding ErrorText}" Foreground="{StaticResource Bad}" Style="{StaticResource Caption}"
+                       TextWrapping="Wrap" Margin="0,10,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
+

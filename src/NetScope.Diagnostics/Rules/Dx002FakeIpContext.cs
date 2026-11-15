@@ -45,7 +45,7 @@ public sealed class Dx002FakeIpContext : DiagnosticRuleBase
                     scope: ScopeOf(probe));
             }
 
-            if (supporting.Length + adapters.Length == 0 || probe.AddressFamily != "ipv4" || !DiagnosticComparability.Complete(probe)
+            if (supporting.Length + adapters.Length == 0 || DiagnosticComparability.TargetFamily(probe) != "ipv4" || !DiagnosticComparability.Complete(probe)
                 || !probe.TimingComparable || probe.TopologyChanged
                 || probe.Status is not (EventStatus.Ok or EventStatus.Failed or EventStatus.Timeout))
             {
@@ -111,3 +111,4 @@ public sealed class Dx002FakeIpContext : DiagnosticRuleBase
             && item.OperationalStatus == "up" && DiagnosticComparability.Present(item.InterfaceGuid));
     }
 }
+
