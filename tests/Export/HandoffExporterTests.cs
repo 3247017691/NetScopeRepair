@@ -44,7 +44,13 @@ public sealed class HandoffExporterTests : IDisposable
         using var reader = new StreamReader(zip.GetEntry("case/case.json")!.Open());
         var caseText = reader.ReadToEnd();
         Assert.DoesNotContain("测试用户", caseText);
+        Assert.DoesNotContain(@"C:\Users", caseText);
         Assert.Contains("batch-aaa", caseText);
+        foreach (var entryName in new[] { "case/case.json", "context/context.json", "developer/guide.md", "manifest.json" })
+        {
+            using var entryReader = new StreamReader(zip.GetEntry(entryName)!.Open());
+            Assert.DoesNotContain("测试用户", entryReader.ReadToEnd());
+        }
     }
 
     [Fact]
@@ -53,14 +59,17 @@ public sealed class HandoffExporterTests : IDisposable
         var logPath = WriteLog(
             Failed("batch-old", "err1"),
             new RepairEvent("batch-new", "repair_applied", DateTimeOffset.Now, null, null, "应用 1 项", null, false, null, null, null),
-            Failed("batch-new", "err2"));
+            Failed("batch-new", "err2"),
+            new RepairEvent("batch-third", "repair_applied", DateTimeOffset.Now, null, null, "应用 1 项", null, false, null, null, null));
         var exporter = new HandoffExporter();
 
         var result = await exporter.ExportAsync(logPath, _dir, null, CancellationToken.None);
 
         using var zip = ZipFile.OpenRead(result.PackagePath);
         using var reader = new StreamReader(zip.GetEntry("case/case.json")!.Open());
-        Assert.Contains("batch-new", reader.ReadToEnd());
+        var caseText = reader.ReadToEnd();
+        Assert.Contains("batch-new", caseText);
+        Assert.DoesNotContain("batch-third", caseText);
     }
 
     [Fact]

@@ -28,6 +28,8 @@
                     <Button Content="{Binding RestoreButtonText}" Command="{Binding RestoreCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
                     <Button Content="开代理" Command="{Binding ProxyOnCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
                     <Button Content="关代理 · 纯直连" Command="{Binding ProxyOffCommand}" Style="{StaticResource GhostButton}" Margin="0,0,8,0" />
+                    <Button Content="交给 AI" Command="{Binding HandoffCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
+                    <Button Content="还是没好" Command="{Binding MarkUnresolvedCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
                     <CheckBox Content="高风险模式" IsChecked="{Binding Deep, Mode=TwoWay}" VerticalAlignment="Center"
                               Foreground="{StaticResource Muted}" FontSize="11.5" />
                 </StackPanel>

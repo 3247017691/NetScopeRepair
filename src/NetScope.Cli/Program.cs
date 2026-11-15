@@ -57,6 +57,7 @@ internal static class Program
                 "status" => await RunStatusAsync().ConfigureAwait(false),
                 "repair" => await RunRepairAsync(rest).ConfigureAwait(false),
                 "proxy" => await RunProxyAsync(rest).ConfigureAwait(false),
+                "handoff" => await RunHandoffAsync(rest).ConfigureAwait(false),
                 "help" or "--help" or "-h" => Usage(),
                 _ => UnknownCommand(command),
             };
@@ -489,6 +490,28 @@ internal static class Program
         return report.Failed > 0 ? ContractFailure : Success;
     }
 
+    private static async Task<int> RunHandoffAsync(string[] args)
+    {
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var logPath = Path.Combine(local, "NetScopeRepair", "maintenance", "repair-events.ndjson");
+        var outDir = OptionValue(args, "--out") ?? Path.Combine(local, "NetScopeRepair", "handoff");
+        var batchId = OptionValue(args, "--case");
+        Console.WriteLine("=== 生成 AI 交接包 ===");
+        var result = await new NetScope.Storage.Export.HandoffExporter()
+            .ExportAsync(logPath, outDir, batchId, CancellationToken.None).ConfigureAwait(false);
+        Console.WriteLine("交接包：" + result.PackagePath);
+        Console.WriteLine();
+        Console.WriteLine("把下面这段粘贴给 AI 助手（Qoder 等，需打开 NetScopeRepair 仓库）：");
+        Console.WriteLine(result.Prompt);
+        return Success;
+    }
+
+    private static string? OptionValue(string[] args, string name)
+    {
+        var index = Array.FindIndex(args, a => a.Equals(name, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+    }
+
     private static int Usage()
     {
         Console.WriteLine("netscope - NetScope Repair CLI");
@@ -507,6 +530,7 @@ internal static class Program
         Console.WriteLine("  netscope repair --restore      回滚上一次/首次以来的全部改动");
         Console.WriteLine("  netscope proxy status          查看代理配置与端口存活（只读）");
         Console.WriteLine("  netscope proxy on|off          开/关代理（off = 纯直连）");
+        Console.WriteLine("  netscope handoff [--case <id>] [--out <dir>]  生成 AI 失败案例交接包");
         Console.WriteLine();
         Console.WriteLine("只有 --apply / proxy on|off 会写系统；每次改动记入 %LOCALAPPDATA%\\NetScopeRepair\\maintenance\\journal.json。");
         Console.WriteLine("接口度量 / WinHTTP / 机器级变量需要管理员权限，权限不足会如实跳过而不会假装成功。");

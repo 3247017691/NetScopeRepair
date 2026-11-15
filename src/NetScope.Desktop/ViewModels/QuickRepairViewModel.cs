@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Input;
 using NetScope.Maintenance;
+using NetScope.Storage.Export;
 
 namespace NetScope.Desktop.ViewModels;
 
@@ -15,6 +17,7 @@ public sealed class ActionRow : ViewModelBase
         Title = action.Title;
         Detail = action.Detail;
         Risk = action.Risk.ToString();
+        Kind = action.Kind;
         RequiresElevation = action.RequiresElevation;
         _isSelected = action.SelectedByDefault;
     }
@@ -23,6 +26,7 @@ public sealed class ActionRow : ViewModelBase
     public string Title { get; }
     public string Detail { get; }
     public string Risk { get; }
+    public string Kind { get; }
     public bool RequiresElevation { get; }
 
     public bool IsSelected
@@ -59,6 +63,9 @@ public sealed class FindingRow
 public sealed class QuickRepairViewModel : ViewModelBase
 {
     private readonly QuickRepairService _service;
+    private readonly HandoffExporter? _exporter;
+    private readonly Func<string>? _sessionPath;
+    private readonly Action<string>? _copyToClipboard;
     private RepairPlan? _plan;
     private bool _isBusy;
     private bool _deep;
@@ -69,14 +76,20 @@ public sealed class QuickRepairViewModel : ViewModelBase
     private string _elevationText = "";
     private string _journalText = "";
 
-    public QuickRepairViewModel(QuickRepairService? service = null)
+    public QuickRepairViewModel(QuickRepairService? service = null, HandoffExporter? exporter = null,
+        Func<string>? sessionPath = null, Action<string>? copyToClipboard = null)
     {
         _service = service ?? new QuickRepairService();
+        _exporter = exporter;
+        _sessionPath = sessionPath;
+        _copyToClipboard = copyToClipboard;
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, null, OnError);
         ApplyCommand = new AsyncRelayCommand(ApplyAsync, null, OnError);
         RestoreCommand = new AsyncRelayCommand(RestoreAsync, null, OnError);
         ProxyOnCommand = new AsyncRelayCommand(() => SwitchProxyAsync(true), null, OnError);
         ProxyOffCommand = new AsyncRelayCommand(() => SwitchProxyAsync(false), null, OnError);
+        HandoffCommand = new AsyncRelayCommand(HandoffAsync, null, OnError);
+        MarkUnresolvedCommand = new AsyncRelayCommand(MarkUnresolvedAsync, null, OnError);
     }
 
     public ObservableCollection<FindingRow> Findings { get; } = new();
@@ -88,6 +101,8 @@ public sealed class QuickRepairViewModel : ViewModelBase
     public ICommand RestoreCommand { get; }
     public ICommand ProxyOnCommand { get; }
     public ICommand ProxyOffCommand { get; }
+    public ICommand HandoffCommand { get; }
+    public ICommand MarkUnresolvedCommand { get; }
 
     public bool IsBusy
     {
@@ -267,6 +282,41 @@ public sealed class QuickRepairViewModel : ViewModelBase
         {
             IsBusy = false;
         }
+    }
+
+    private async Task HandoffAsync()
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        try
+        {
+            var path = _sessionPath?.Invoke();
+            if (path is null || !File.Exists(path))
+            {
+                StatusMessage = "没有会话日志，无法生成交接包。";
+                return;
+            }
+            var outDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "NetScopeRepair", "handoff");
+            var result = await (_exporter ?? new HandoffExporter())
+                .ExportAsync(path, outDir, null, CancellationToken.None).ConfigureAwait(true);
+            (_copyToClipboard ?? System.Windows.Clipboard.SetText)(result.Prompt);
+            Messages.Add("交给 AI：" + result.PackagePath);
+            StatusMessage = "交接包已生成，提示词已复制到剪贴板：" + result.PackagePath;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            StatusMessage = "交接包生成失败：" + exception.Message;
+        }
+        finally { IsBusy = false; }
+    }
+
+    private async Task MarkUnresolvedAsync()
+    {
+        var ok = await _service.MarkUnresolvedAsync(CancellationToken.None).ConfigureAwait(true);
+        StatusMessage = ok
+            ? "已记录「还是没好」。点「交给 AI」生成失败案例包。"
+            : "没有可标记的修复批次（先执行一次修复）。";
     }
 
     private void OnError(Exception exception)

@@ -37,7 +37,10 @@ public sealed class MainViewModel : ViewModelBase
         Home = new HomeViewModel(services.Session, () => _settings, DiagnoseAsync, HandleErrorAsync, CollectAsync);
         Timeline = new TimelineViewModel();
         Diagnoses = new DiagnosesViewModel();
-        QuickRepair = new QuickRepairViewModel(new QuickRepairService(sink: new SessionRepairEventSink(services.Session, services.Clock)));
+        QuickRepair = new QuickRepairViewModel(
+            new QuickRepairService(sink: new SessionRepairEventSink(services.Session, services.Clock)),
+            sessionPath: () => services.Session.SessionPath,
+            copyToClipboard: System.Windows.Clipboard.SetText);
         CaseReplay = new CaseReplayViewModel();
         Clients = new ClientsViewModel(services.Clients, services.Explanations);
         Export = new ExportViewModel(services.Exporter, () => DisplaySessionPath, _pickFolder);
