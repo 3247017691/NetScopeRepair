@@ -493,7 +493,8 @@ internal static class Program
     private static async Task<int> RunHandoffAsync(string[] args)
     {
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var logPath = Path.Combine(local, "NetScopeRepair", "maintenance", "repair-events.ndjson");
+        var logPath = OptionValue(args, "--log")
+            ?? Path.Combine(local, "NetScopeRepair", "maintenance", "repair-events.ndjson");
         var outDir = OptionValue(args, "--out") ?? Path.Combine(local, "NetScopeRepair", "handoff");
         var batchId = OptionValue(args, "--case");
         Console.WriteLine("=== 生成 AI 交接包 ===");
@@ -530,7 +531,7 @@ internal static class Program
         Console.WriteLine("  netscope repair --restore      回滚上一次/首次以来的全部改动");
         Console.WriteLine("  netscope proxy status          查看代理配置与端口存活（只读）");
         Console.WriteLine("  netscope proxy on|off          开/关代理（off = 纯直连）");
-        Console.WriteLine("  netscope handoff [--case <id>] [--out <dir>]  生成 AI 失败案例交接包");
+        Console.WriteLine("  netscope handoff [--case <id>] [--log <path>] [--out <dir>]  生成 AI 失败案例交接包");
         Console.WriteLine();
         Console.WriteLine("只有 --apply / proxy on|off 会写系统；每次改动记入 %LOCALAPPDATA%\\NetScopeRepair\\maintenance\\journal.json。");
         Console.WriteLine("接口度量 / WinHTTP / 机器级变量需要管理员权限，权限不足会如实跳过而不会假装成功。");

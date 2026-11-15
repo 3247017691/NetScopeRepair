@@ -124,7 +124,7 @@ netscope repair --apply --yes    真执行默认动作；加 --deep 含高风险
 netscope repair --restore        回滚到第一次执行前的状态（含 TUN 三字段）
 netscope proxy status            查看代理配置与端口存活（只读）
 netscope proxy on|off            开/关代理；off = 纯直连
-netscope handoff [--case <id>] [--out <dir>]  生成 AI 失败案例交接包并打印提示词
+netscope handoff [--case <id>] [--log <path>] [--out <dir>]  生成 AI 失败案例交接包并打印提示词
 netscope help                    命令列表
 ```
 
@@ -132,7 +132,9 @@ netscope help                    命令列表
 `demo` 默认写入 `%LOCALAPPDATA%\NetScopeRepair\demo`，可用 `--out` 指定新目录；已有日志或索引时拒绝覆写。
 `check <file>` 保留真实/合成标记，不强制把会话改为合成；默认 fixture 仍要求 synthetic=true。
 `--deep` 之外的高风险动作默认不选中，`--apply` 未带 `--yes` 时还会交互确认一次。
-`handoff` 默认读取 `%LOCALAPPDATA%\NetScopeRepair\maintenance\repair-events.ndjson` 的最近失败批次。
+`handoff` 默认读取 `%LOCALAPPDATA%\NetScopeRepair\maintenance\repair-events.ndjson` 的最近失败批次；
+`--log <path>` 可指向任意历史会话的 repair-events.ndjson，重启后也能交接之前的失败案例。
+桌面时间线/诊断页的按案例导出按钮延后到下一里程碑。
 
 ## 目录
 

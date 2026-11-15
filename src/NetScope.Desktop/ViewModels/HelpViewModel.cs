@@ -4,7 +4,7 @@ namespace NetScope.Desktop.ViewModels;
 
 public sealed record HelpSection(string Title, string Body);
 
-/// <summary>Offline help: the same text works with no network, no API key and no repair capability.</summary>
+/// <summary>Offline help: the same text works with no network and no API key; repair is described here and executed only from the repair page.</summary>
 public sealed class HelpViewModel : ViewModelBase
 {
     public HelpViewModel(string sessionPath, string dataRoot)
