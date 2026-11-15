@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="Apache 2.0 License" /></a>
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet" alt=".NET 10" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows" alt="Windows" />
   <a href="https://github.com/3247017691/NetScopeRepair/releases"><img src="https://img.shields.io/github/v/release/3247017691/NetScopeRepair?label=release" alt="Release" /></a>
@@ -167,4 +167,4 @@ netscope handoff               # 生成 AI 失败案例交接包并打印提示�
 
 ## 📄 许可证
 
-[MIT](LICENSE) © 2026 GMorning0602 —— 可自由使用、修改、分发与商用，保留版权声明即可。
+[Apache License 2.0](LICENSE) © 2026 GMorning0602 —— 可自由使用、修改、分发与商用，保留版权与许可声明即可，并含明确的专利授权。
