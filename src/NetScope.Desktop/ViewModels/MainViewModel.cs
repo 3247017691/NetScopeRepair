@@ -8,8 +8,8 @@ namespace NetScope.Desktop.ViewModels;
 public sealed record NavSection(string Title, string Caption, ViewModelBase ViewModel, string IconGeometry = "");
 
 /// <summary>
-/// Composition root for the shell. It owns the read-only observation session and routes session
-/// events to the pages; it exposes no repair action.
+/// Composition root for the shell. It owns the read-only observation session, routes session
+/// events to the pages, and wires the home/diagnosis entry points into the user-confirmed repair page.
 /// </summary>
 public sealed class MainViewModel : ViewModelBase
 {
@@ -34,13 +34,14 @@ public sealed class MainViewModel : ViewModelBase
         _pickFolder = pickFolder ?? (() => null);
         _settings = services.Settings;
 
-        Home = new HomeViewModel(services.Session, () => _settings, DiagnoseAsync, HandleErrorAsync, CollectAsync);
-        Timeline = new TimelineViewModel();
-        Diagnoses = new DiagnosesViewModel();
         QuickRepair = new QuickRepairViewModel(
             new QuickRepairService(sink: new SessionRepairEventSink(services.Session, services.Clock)),
             sessionPath: () => services.Session.SessionPath,
             copyToClipboard: System.Windows.Clipboard.SetText);
+        Home = new HomeViewModel(services.Session, () => _settings, DiagnoseAsync, HandleErrorAsync, CollectAsync,
+            openRepair: () => OpenRepairAsync(null));
+        Timeline = new TimelineViewModel();
+        Diagnoses = new DiagnosesViewModel(ruleId => OpenRepairAsync(ruleId));
         CaseReplay = new CaseReplayViewModel();
         Clients = new ClientsViewModel(services.Clients, services.Explanations);
         Export = new ExportViewModel(services.Exporter, () => DisplaySessionPath, _pickFolder);
@@ -57,7 +58,7 @@ public sealed class MainViewModel : ViewModelBase
                 "M12 2l8 4v6c0 5.25-3.5 10-8 11-4.5-1-8-5.75-8-11V6l8-4zm-2 10l2 2 4-4"),
             new NavSection("案例回放", "固定规则重放本地故障包", CaseReplay,
                 "M4 4h16v12H4zM8 20h8M12 16v4M9 9l3-3 3 3M12 6v5"),
-            new NavSection("快速修复", "本机真实体检 · 可回滚执行", QuickRepair,
+            new NavSection("修复", "本机真实体检 · TUN/残留/代理 · 可回滚", QuickRepair,
                 "M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"),
             new NavSection("多客户端", "只读状态与依赖解释", Clients,
                 "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"),
@@ -78,6 +79,14 @@ public sealed class MainViewModel : ViewModelBase
         services.Session.CollectionFailed += (_, type) => _dispatcher.Post(() => Home.ReportFailure(type));
         UpdateSessionState();
         if (Clients.HasProvider) _ = Clients.RefreshAsync(CancellationToken.None);
+
+        QuickRepair.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(QuickRepairViewModel.HasPlan) or nameof(QuickRepairViewModel.SummaryText))
+                _dispatcher.Post(() => Home.RepairHintText = QuickRepair.HasPlan
+                    ? "发现 " + QuickRepair.Actions.Count + " 项可执行修复动作 → 去修复"
+                    : "修复：体检本机，发现可修复问题");
+        };
     }
 
     public HomeViewModel Home { get; }
@@ -205,6 +214,19 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (IsDemo || _switchingMode || IsBusy) return null;
         return await RunManualAsync(_services.Session.CollectOnceAsync, cancellationToken);
+    }
+
+    private async Task OpenRepairAsync(string? ruleId)
+    {
+        try
+        {
+            SelectedSection = Sections.First(section => ReferenceEquals(section.ViewModel, QuickRepair));
+            await QuickRepair.PreselectForDiagnosisAsync(ruleId);
+        }
+        catch (Exception exception)
+        {
+            await HandleErrorAsync(exception);
+        }
     }
 
     private async Task<SessionCycle> RunManualAsync(Func<CancellationToken, Task<SessionCycle>> work,

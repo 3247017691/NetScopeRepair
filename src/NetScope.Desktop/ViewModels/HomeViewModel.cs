@@ -18,6 +18,7 @@ public sealed class HomeViewModel : ViewModelBase
     private readonly ObservationSession _session;
     private readonly Func<AppSettings> _settings;
     private readonly Func<CancellationToken, Task<SessionCycle?>> _diagnose;
+    private readonly Func<Task>? _openRepair;
     private string _healthTitle = "尚未开始观察";
     private string _healthDetail = "点击“开始观察”后，只在本机读取网卡、路由、DNS 与代理配置；不会自动发起外部探测。";
     private Brush _healthTone = UiText.GapBrush;
@@ -55,11 +56,13 @@ public sealed class HomeViewModel : ViewModelBase
         Func<AppSettings> settings,
         Func<CancellationToken, Task<SessionCycle?>> diagnose,
         Func<Exception, Task>? onError = null,
-        Func<CancellationToken, Task<SessionCycle?>>? collect = null)
+        Func<CancellationToken, Task<SessionCycle?>>? collect = null,
+        Func<Task>? openRepair = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _diagnose = diagnose ?? throw new ArgumentNullException(nameof(diagnose));
+        _openRepair = openRepair;
 
         StartCommand = new AsyncRelayCommand(StartAsync, () => CanStart, ex => onError?.Invoke(ex));
         PauseCommand = new AsyncRelayCommand(PauseAsync, () => CanPause, ex => onError?.Invoke(ex));
@@ -71,6 +74,10 @@ public sealed class HomeViewModel : ViewModelBase
             if (collect is not null) await collect(CancellationToken.None);
             else ApplyCycle(await _session.CollectOnceAsync(CancellationToken.None));
         }, () => CanCollect, ex => onError?.Invoke(ex));
+        OpenRepairCommand = new AsyncRelayCommand(async () =>
+        {
+            if (_openRepair is not null) await _openRepair().ConfigureAwait(true);
+        }, null, null);
         ApplySessionState();
         RefreshTargetText();
         _sessionPathText = _session.SessionPath;
@@ -87,6 +94,15 @@ public sealed class HomeViewModel : ViewModelBase
     public ICommand DiagnoseCommand { get; }
 
     public ICommand CollectCommand { get; }
+
+    public ICommand OpenRepairCommand { get; }
+
+    private string _repairHintText = "修复：体检本机，发现可修复问题";
+    public string RepairHintText
+    {
+        get => _repairHintText;
+        set => Set(ref _repairHintText, value);
+    }
 
     /// <summary>Overall honest summary. Green is only allowed after a comparable passing probe.</summary>
     public string HealthTitle

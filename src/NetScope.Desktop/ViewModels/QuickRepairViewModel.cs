@@ -191,6 +191,21 @@ public sealed class QuickRepairViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Entry from diagnosis/home: refresh, then pre-select the actions mapped to the rule.</summary>
+    public async Task PreselectForDiagnosisAsync(string? ruleId)
+    {
+        await RefreshAsync().ConfigureAwait(true);
+        if (ruleId is null) return;
+        var kinds = DiagnosisRepairMap.ActionKindsFor(ruleId);
+        if (kinds.Count == 0)
+        {
+            StatusMessage = "诊断 " + ruleId + " 暂无对应修复动作（只报告）。";
+            return;
+        }
+        foreach (var row in Actions) row.IsSelected = kinds.Contains(row.Kind);
+        StatusMessage = "已按诊断 " + ruleId + " 预选修复动作；确认后执行。";
+    }
+
     private async Task ApplyAsync()
     {
         if (IsBusy) return;

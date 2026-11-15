@@ -149,6 +149,8 @@
                                 <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,8" />
                                 <TextBlock Text="{Binding Selected.NextStep, StringFormat=建议下一步：{0}}"
                                            FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                                <Button Content="去修复" Command="{Binding GoRepairCommand}"
+                                        Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Margin="0,8,0,0" />
                             </StackPanel>
                         </Border>
 

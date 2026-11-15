@@ -18,6 +18,7 @@ public sealed record RuleFailureRow(string RuleId, string RuleVersion, string Er
 public sealed class DiagnosesViewModel : ViewModelBase
 {
     private DiagnosisRow? _selected;
+    private readonly Func<string, Task>? _openRepair;
     private string _emptyText = "还没有诊断结论。开始观察后运行一次探测，或载入合成演示。";
     private bool _isSynthetic;
     private DateTimeOffset? _diagnosedAt;
@@ -29,16 +30,26 @@ public sealed class DiagnosesViewModel : ViewModelBase
     private string _probeEmptyText = "选择一条结论查看它的探测对比。";
     private string _groupNoteText = "";
 
-    public DiagnosesViewModel()
+    public DiagnosesViewModel(Func<string, Task>? openRepair = null)
     {
+        _openRepair = openRepair;
         ToggleReasonsCommand = new AsyncRelayCommand(() =>
         {
             AreReasonsExpanded = !AreReasonsExpanded;
             return Task.CompletedTask;
         });
+        GoRepairCommand = new AsyncRelayCommand(GoRepairAsync, null, null);
     }
 
     public ICommand ToggleReasonsCommand { get; }
+
+    public ICommand GoRepairCommand { get; }
+
+    private async Task GoRepairAsync()
+    {
+        if (Selected is not null && _openRepair is not null)
+            await _openRepair(Selected.RuleId).ConfigureAwait(true);
+    }
 
     public string ObservationText => IsSynthetic ? "以下为合成演示结论，时间和证据均来自演示会话。" : _diagnosedAt is { } at
         ? "最近一次手动诊断：" + at.ToLocalTime().ToString("MM-dd HH:mm:ss") + "；后续快照不表示已复测。"

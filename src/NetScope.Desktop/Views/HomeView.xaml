@@ -174,9 +174,15 @@
                                    Foreground="{StaticResource Ink}" TextWrapping="Wrap" />
                     </Border>
 
-                    <!-- Manual Trigger Button -->
-                    <Button Content="立即采集一次" Command="{Binding CollectCommand}"
-                            Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Margin="0,14,0,0" />
+                    <!-- Manual Trigger Buttons -->
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button Content="修复网络" Command="{Binding OpenRepairCommand}"
+                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
+                        <Button Content="立即采集一次" Command="{Binding CollectCommand}"
+                                Style="{StaticResource QuietButton}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding RepairHintText}" Style="{StaticResource Caption}"
+                               HorizontalAlignment="Left" Margin="0,6,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>

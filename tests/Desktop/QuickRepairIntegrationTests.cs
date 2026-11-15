@@ -51,8 +51,58 @@ public sealed class QuickRepairIntegrationTests : IDisposable
         Assert.Contains("没有可标记的修复批次", vm.StatusMessage);
     }
 
+    [Fact]
+    public void Diagnosis_map_covers_dead_proxy_and_stale_config_only()
+    {
+        Assert.Contains("ClearProxyEnv", DiagnosisRepairMap.ActionKindsFor("DX-001"));
+        Assert.Contains("RaiseInterfaceMetric", DiagnosisRepairMap.ActionKindsFor("DX-006"));
+        Assert.Empty(DiagnosisRepairMap.ActionKindsFor("DX-005"));
+        Assert.Empty(DiagnosisRepairMap.ActionKindsFor("DX-999"));
+    }
+
+    [Fact]
+    public async Task Preselect_for_dx001_selects_only_dead_proxy_actions()
+    {
+        var snapshot = new MaintenanceSnapshot(
+            DateTimeOffset.Now, true, 21, "WLAN", null, Array.Empty<int>(),
+            new[] { new ProxyLayerSnapshot("User", "HTTP_PROXY", "http://127.0.0.1:7890", 7890, false) },
+            true, "127.0.0.1:7890", 7890, false, 0,
+            Array.Empty<InterfaceSnapshot>(), Array.Empty<GhostDeviceSnapshot>(), Array.Empty<string>());
+        var service = new QuickRepairService(new StaticProbe(snapshot), new NoopExecutor(),
+            new MaintenanceJournalStore(Path.Combine(_dir, "journal.json")),
+            new GreenPostCheck());
+        var vm = new QuickRepairViewModel(service);
+
+        await vm.PreselectForDiagnosisAsync("DX-001");
+
+        Assert.All(vm.Actions.Where(a => a.Kind is "ClearProxyEnv" or "DisableSystemProxy"),
+            a => Assert.True(a.IsSelected));
+        Assert.All(vm.Actions.Where(a => a.Kind is not ("ClearProxyEnv" or "DisableSystemProxy")),
+            a => Assert.False(a.IsSelected));
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }
+    }
+
+    private sealed class StaticProbe(MaintenanceSnapshot snapshot) : IMaintenanceProbe
+    {
+        public Task<MaintenanceSnapshot> CaptureAsync(CancellationToken ct) => Task.FromResult(snapshot);
+    }
+
+    private sealed class NoopExecutor : IMaintenanceExecutor
+    {
+        public Task<ActionResult> ApplyAsync(RepairAction action, CancellationToken ct)
+            => Task.FromResult(new ActionResult(action.Id, action.Title, true, action.Current, action.Desired, null));
+        public Task<(bool Ok, string Message)> RestoreAsync(JournalEntry entry, CancellationToken ct)
+            => Task.FromResult((true, "ok"));
+        public Task BroadcastEnvironmentAsync(CancellationToken ct) => Task.CompletedTask;
+    }
+
+    private sealed class GreenPostCheck : IPostCheckProbe
+    {
+        public Task<PostCheckObservation> ObserveAsync(CancellationToken ct)
+            => Task.FromResult(new PostCheckObservation(21, true, true, true, true, false));
     }
 }
