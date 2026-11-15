@@ -99,11 +99,11 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Category}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
-                                        <Border Grid.Column="1" Background="#EEF0FF" BorderThickness="0"
+                                        <Border Grid.Column="1" Background="{StaticResource AccentLight}" BorderThickness="0"
                                                 CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Ellipse Width="5.5" Height="5.5" Fill="#4F46E5" VerticalAlignment="Center" Margin="0,0,5,0" />
-                                                <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11" Foreground="#4338CA" FontWeight="Medium" VerticalAlignment="Center" />
+                                                <Ellipse Width="5.5" Height="5.5" Fill="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,5,0" />
+                                                <TextBlock Text="{Binding CountText}" Style="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource AccentDeep}" FontWeight="Medium" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </Border>
                                         <TextBlock Grid.Column="2" Text="{Binding Strategy}" Style="{StaticResource Caption}"

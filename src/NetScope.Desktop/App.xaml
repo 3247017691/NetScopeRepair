@@ -12,6 +12,7 @@
 
             <BooleanToVisibilityConverter x:Key="BoolToVis" />
             <conv:CountToVisibilityConverter x:Key="CountToVis" />
+            <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
 
             <DataTemplate DataType="{x:Type vm:HomeViewModel}">
                 <views:HomeView />

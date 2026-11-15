@@ -156,26 +156,26 @@ public sealed record DependencyRow(
 /// <summary>Display-only mapping. It never upgrades an observation into a stronger claim.</summary>
 public static class UiText
 {
-    public static readonly Brush OkBrush = Frozen(0x0B, 0x8A, 0x56);
-    public static readonly Brush WarnBrush = Frozen(0xB4, 0x53, 0x09);
-    public static readonly Brush BadBrush = Frozen(0xDC, 0x26, 0x26);
-    public static readonly Brush GapBrush = Frozen(0x4B, 0x55, 0x63);
-    public static readonly Brush AccentBrush = Frozen(0x4F, 0x46, 0xE5);
+    public static readonly Brush OkBrush = Frozen(0x00, 0x6B, 0x2E);
+    public static readonly Brush WarnBrush = Frozen(0x86, 0x59, 0x00);
+    public static readonly Brush BadBrush = Frozen(0xA5, 0x29, 0x2B);
+    public static readonly Brush GapBrush = Frozen(0x47, 0x4E, 0x55);
+    public static readonly Brush AccentBrush = Frozen(0x5E, 0x6A, 0xD2);
 
-    public static readonly Brush OkBgBrush = Frozen(0xE6, 0xF5, 0xEE);
-    public static readonly Brush OkBorderBrush = Frozen(0xA7, 0xF3, 0xD0);
+    public static readonly Brush OkBgBrush = Frozen(0xE0, 0xF7, 0xE4);
+    public static readonly Brush OkBorderBrush = Frozen(0xB7, 0xE5, 0xBF);
 
-    public static readonly Brush WarnBgBrush = Frozen(0xFB, 0xF0, 0xDF);
-    public static readonly Brush WarnBorderBrush = Frozen(0xFD, 0xE6, 0x8A);
+    public static readonly Brush WarnBgBrush = Frozen(0xFF, 0xED, 0xD6);
+    public static readonly Brush WarnBorderBrush = Frozen(0xF7, 0xD1, 0x9C);
 
-    public static readonly Brush BadBgBrush = Frozen(0xFD, 0xEC, 0xEC);
-    public static readonly Brush BadBorderBrush = Frozen(0xFE, 0xCA, 0xCA);
+    public static readonly Brush BadBgBrush = Frozen(0xFF, 0xEB, 0xE9);
+    public static readonly Brush BadBorderBrush = Frozen(0xFF, 0xC8, 0xC3);
 
-    public static readonly Brush GapBgBrush = Frozen(0xEF, 0xEF, 0xF5);
-    public static readonly Brush GapBorderBrush = Frozen(0xCB, 0xD5, 0xE1);
+    public static readonly Brush GapBgBrush = Frozen(0xF0, 0xF3, 0xF6);
+    public static readonly Brush GapBorderBrush = Frozen(0xE0, 0xE3, 0xE7);
 
-    public static readonly Brush AccentBgBrush = Frozen(0xEE, 0xF0, 0xFF);
-    public static readonly Brush AccentBorderBrush = Frozen(0xC7, 0xD2, 0xFE);
+    public static readonly Brush AccentBgBrush = Frozen(0xEC, 0xEF, 0xFF);
+    public static readonly Brush AccentBorderBrush = Frozen(0xCC, 0xD5, 0xFF);
 
     public static Brush SoftBackground(Brush? tone)
     {

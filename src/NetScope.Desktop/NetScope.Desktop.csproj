@@ -18,6 +18,11 @@
   <ItemGroup>
     <Resource Include="Resources\netscope.ico" />
     <Resource Include="Resources\netscope-logo.png" />
+    <Resource Include="Resources\Fonts\Inter-Regular.ttf" />
+    <Resource Include="Resources\Fonts\Inter-Medium.ttf" />
+    <Resource Include="Resources\Fonts\Inter-SemiBold.ttf" />
+    <Resource Include="Resources\Fonts\Inter-Bold.ttf" />
+    <Content Include="Resources\Fonts\LICENSE.txt" Link="Inter-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -8,42 +8,33 @@
              Background="{StaticResource Canvas}">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="246" />
+            <ColumnDefinition Width="248" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Left Navigation Rail (Slate-50 with 1px right border) -->
+        <!-- Left navigation rail -->
         <Border Grid.Column="0" Background="{StaticResource Rail}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
             <DockPanel>
-                <!-- Brand Area -->
-                <StackPanel DockPanel.Dock="Top" Margin="18,22,18,16">
+                <!-- Brand -->
+                <StackPanel DockPanel.Dock="Top" Margin="18,20,18,14">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="38" />
+                            <ColumnDefinition Width="36" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <!-- Brand Icon: Ceramic White Squircle with Manta Radar Mark -->
-                        <Image Grid.Column="0" Width="38" Height="38"
+                        <Image Grid.Column="0" Width="36" Height="36"
                                Source="pack://application:,,,/Resources/netscope-logo.png"
                                HorizontalAlignment="Left" VerticalAlignment="Center"
                                RenderOptions.BitmapScalingMode="HighQuality" />
-                        <!-- Brand Title & Badge -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
-                            <TextBlock Text="NetScope Repair" FontSize="14.5" FontWeight="Bold" Foreground="{StaticResource Ink}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                <Border Background="#EEF0FF" BorderThickness="0" CornerRadius="9" Padding="7,1.5">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Ellipse Width="5" Height="5" Fill="#4F46E5" VerticalAlignment="Center" Margin="0,0,5,0" />
-                                        <TextBlock Text="修复" FontSize="10.5" FontWeight="Medium" Foreground="#4338CA" />
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
+                            <TextBlock Text="NetScope Repair" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
+                            <TextBlock Text="网络诊断 · 受控修复" FontSize="10.5" Foreground="{StaticResource SubtleText}" Margin="0,2,0,0" />
                         </StackPanel>
                     </Grid>
                     <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,16,0,0" />
                 </StackPanel>
 
-                <!-- Sidebar Bottom Safety Card -->
+                <!-- Safety note -->
                 <Border DockPanel.Dock="Bottom" Margin="12,10,12,16" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6" Padding="12,9">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Path Data="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
@@ -53,7 +44,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Navigation ListBox -->
+                <!-- Navigation -->
                 <ListBox ItemsSource="{Binding Sections}"
                          SelectedItem="{Binding SelectedSection, Mode=TwoWay}"
                          Background="Transparent" BorderThickness="0"
@@ -61,41 +52,46 @@
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="Margin" Value="10,2" />
-                            <Setter Property="Padding" Value="10,9" />
+                            <Setter Property="Padding" Value="10,8" />
                             <Setter Property="Cursor" Value="Hand" />
                             <Setter Property="Foreground" Value="{StaticResource Muted}" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="Chrome" Background="Transparent" CornerRadius="6"
-                                                Padding="{TemplateBinding Padding}" BorderThickness="1" BorderBrush="Transparent">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="20" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <Path x:Name="NavIcon" Grid.Column="0" Data="{Binding IconGeometry}"
-                                                      Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6"
-                                                      StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                      Fill="Transparent" Width="15" Height="15" Stretch="Uniform"
-                                                      HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,1,0,0" />
-                                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                                    <TextBlock x:Name="NavTitle" Text="{Binding Title}" FontSize="13" FontWeight="Normal"
-                                                               Foreground="{TemplateBinding Foreground}" />
-                                                    <TextBlock x:Name="NavCaption" Text="{Binding Caption}" FontSize="10.5" Margin="0,1.5,0,0"
-                                                               Foreground="{StaticResource SubtleText}" TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
+                                        <Grid>
+                                            <Border x:Name="ActiveBar" Width="3" HorizontalAlignment="Left" CornerRadius="2"
+                                                    Background="{StaticResource Accent}" Visibility="Collapsed" Margin="0,5" />
+                                            <Border x:Name="Chrome" Background="Transparent" CornerRadius="6" Margin="5,0,0,0"
+                                                    Padding="{TemplateBinding Padding}" BorderThickness="1" BorderBrush="Transparent">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="20" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Path x:Name="NavIcon" Grid.Column="0" Data="{Binding IconGeometry}"
+                                                          Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6"
+                                                          StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                          Fill="Transparent" Width="15" Height="15" Stretch="Uniform"
+                                                          HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,1,0,0" />
+                                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                        <TextBlock x:Name="NavTitle" Text="{Binding Title}" FontSize="13" FontWeight="Normal"
+                                                                   Foreground="{TemplateBinding Foreground}" />
+                                                        <TextBlock x:Name="NavCaption" Text="{Binding Caption}" FontSize="10.5" Margin="0,1.5,0,0"
+                                                                   Foreground="{StaticResource SubtleText}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </Grid>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="Chrome" Property="Background" Value="{StaticResource HoverSurface}" />
                                                 <Setter Property="Foreground" Value="{StaticResource Ink}" />
                                             </Trigger>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Surface}" />
-                                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Line}" />
+                                                <Setter TargetName="ActiveBar" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource HoverSurface}" />
                                                 <Setter Property="Foreground" Value="{StaticResource Accent}" />
                                                 <Setter TargetName="NavTitle" Property="FontWeight" Value="SemiBold" />
                                                 <Setter TargetName="NavTitle" Property="Foreground" Value="{StaticResource Ink}" />
@@ -111,7 +107,7 @@
             </DockPanel>
         </Border>
 
-        <!-- Right Main Surface -->
+        <!-- Main surface -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -119,7 +115,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Top Header Toolbar -->
+            <!-- Header -->
             <Border Grid.Row="0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
                     BorderThickness="0,0,0,1" Padding="26,14">
                 <DockPanel>
@@ -127,33 +123,24 @@
                         <TextBlock Text="{Binding PageTitle}" Style="{StaticResource H1}" />
                         <TextBlock Text="{Binding PageCaption}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
                     </StackPanel>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
-                                VerticalAlignment="Center">
-                        <!-- Modern Magpie-style Status Capsule (CornerRadius=13 for 26px height, no border) -->
-                        <Border Background="{Binding StateBg}" BorderThickness="0"
-                                CornerRadius="13" Padding="11,4.5" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Border Background="{Binding StateBg}" BorderThickness="0" CornerRadius="13" Padding="11,4.5" Margin="0,0,12,0" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse Width="6.5" Height="6.5" Fill="{Binding StateTone}" VerticalAlignment="Center"
-                                         Margin="0,0,6.5,0" />
+                                <Ellipse Width="6.5" Height="6.5" Fill="{Binding StateTone}" VerticalAlignment="Center" Margin="0,0,6.5,0" />
                                 <TextBlock Text="{Binding StateText}" FontSize="12" FontWeight="Medium" Foreground="{Binding StateTone}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
-                        <Button Content="开始观察" Command="{Binding Home.StartCommand}"
-                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
-                        <Button Content="暂停" Command="{Binding Home.PauseCommand}"
-                                Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
-                        <Button Content="立即诊断" Command="{Binding Home.DiagnoseCommand}"
-                                Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
-                        <Button Content="载入合成演示" Command="{Binding LoadDemoCommand}"
-                                Style="{StaticResource GhostButton}" />
+                        <Button Content="开始观察" Command="{Binding Home.StartCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
+                        <Button Content="暂停" Command="{Binding Home.PauseCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
+                        <Button Content="立即诊断" Command="{Binding Home.DiagnoseCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
+                        <Button Content="载入合成演示" Command="{Binding LoadDemoCommand}" Style="{StaticResource GhostButton}" />
                     </StackPanel>
                 </DockPanel>
             </Border>
 
-            <!-- Main Scrollable Canvas -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="28,24,28,30">
+            <!-- Content -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="28,22,28,28">
                 <StackPanel>
-                    <!-- Demo Alert Banner -->
                     <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1" CornerRadius="8"
                             Padding="14,10" Margin="0,0,0,16"
                             Visibility="{Binding IsDemo, Converter={StaticResource BoolToVis}}">
@@ -173,20 +160,19 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- Bottom Notifications -->
+            <!-- Status / error bar (polite, never steals focus) -->
             <StackPanel Grid.Row="2">
                 <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0"
-                        Padding="26,8" Visibility="{Binding HasStatus, Converter={StaticResource BoolToVis}}">
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource Muted}" FontSize="12"
-                               TextWrapping="Wrap" />
+                        Padding="26,8" Visibility="{Binding HasStatus, Converter={StaticResource BoolToVis}}"
+                        AutomationProperties.LiveSetting="Polite">
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" />
                 </Border>
                 <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="0,1,0,0"
-                        Padding="26,8" Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
-                    <TextBlock Text="{Binding ErrorText}" Foreground="{StaticResource Warn}" FontSize="12"
-                               TextWrapping="Wrap" />
+                        Padding="26,8" Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
+                        AutomationProperties.LiveSetting="Assertive">
+                    <TextBlock Text="{Binding ErrorText}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" />
                 </Border>
             </StackPanel>
         </Grid>
     </Grid>
 </UserControl>
-

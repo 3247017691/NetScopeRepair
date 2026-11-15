@@ -19,7 +19,7 @@
                             Style="{StaticResource QuietButton}" VerticalAlignment="Center" />
                 </DockPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
-                    <Border Background="#EFEFF5" BorderThickness="0"
+                    <Border Background="{StaticResource GapBg}" BorderThickness="0"
                             CornerRadius="12" Padding="11,4" Margin="0,0,8,0">
                         <Border.Style>
                             <Style TargetType="Border">
@@ -32,8 +32,8 @@
                             </Style>
                         </Border.Style>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Ellipse Width="6" Height="6" Fill="#4F46E5" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBlock Text="{Binding CountsText}" FontSize="12" FontWeight="Medium" Foreground="#3F4354" VerticalAlignment="Center" />
+                            <Ellipse Width="6" Height="6" Fill="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding CountsText}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Ink}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Border>
                     <Border Background="{StaticResource WarnBg}" BorderThickness="0"
@@ -244,28 +244,19 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Modern Terminal Card -->
-                <Border Background="#0F172A" BorderBrush="#1E293B" BorderThickness="0" Margin="14,0,14,14" CornerRadius="8">
+                <!-- JSON payload viewer (light subtle surface) -->
+                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1" Margin="14,0,14,14" CornerRadius="8">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="32" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <!-- Terminal Title Bar -->
-                        <Border Grid.Row="0" Background="#1E293B" CornerRadius="8,8,0,0" Padding="12,0" BorderBrush="#334155" BorderThickness="0,0,0,1">
-                            <DockPanel LastChildFill="False" VerticalAlignment="Center">
-                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Ellipse Width="10" Height="10" Fill="#EF4444" Margin="0,0,6,0" Opacity="0.85" />
-                                    <Ellipse Width="10" Height="10" Fill="#F59E0B" Margin="0,0,6,0" Opacity="0.85" />
-                                    <Ellipse Width="10" Height="10" Fill="#10B981" Margin="0,0,12,0" Opacity="0.85" />
-                                    <TextBlock Text="JSON Payload · 只读最小化事实" FontFamily="Cascadia Mono, Consolas" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </DockPanel>
+                        <Border Grid.Row="0" Background="{StaticResource HoverSurface}" CornerRadius="8,8,0,0" Padding="12,0" BorderBrush="{StaticResource LineSubtle}" BorderThickness="0,0,0,1">
+                            <TextBlock Text="JSON Payload · 只读最小化事实" FontFamily="Cascadia Mono, Consolas" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
                         </Border>
-                        <!-- Terminal Content Body -->
                         <ScrollViewer Grid.Row="1" MaxHeight="280" VerticalScrollBarVisibility="Auto" Padding="14,12">
                             <TextBlock Text="{Binding DetailJson}" FontFamily="Cascadia Mono, Consolas" FontSize="11.5"
-                                       Foreground="#E2E8F0" TextWrapping="Wrap" LineHeight="18" />
+                                       Foreground="{StaticResource Ink}" TextWrapping="Wrap" LineHeight="18" />
                         </ScrollViewer>
                     </Grid>
                 </Border>

@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet" alt=".NET 10" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows" alt="Windows" />
   <a href="https://github.com/3247017691/NetScopeRepair/releases"><img src="https://img.shields.io/github/v/release/3247017691/NetScopeRepair?label=release" alt="Release" /></a>
-  <img src="https://img.shields.io/badge/tests-923%20passing-brightgreen.svg" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-929%20passing-brightgreen.svg" alt="Tests" />
 </p>
 
 <p align="center">
@@ -70,6 +70,16 @@ NetScope Repair 把这些变成 **可读的诊断结论 → 可勾选的修复�
 - **代理开关**：`proxy on|off`，off 即纯直连
 - **深度清理**（高风险模式，默认不选）：移除幽灵网卡、重置旧接口静态 DNS
 
+### 🎨 克制界面 + 实时流式反馈
+
+Linear 风格的浅色控制台：Inter 字体、单一靛蓝强调色、极细分割线，靠亮度阶梯分层而非阴影堆砌。修复页**点击即有反馈**，不再「点了没动静」：
+
+- **结构化步骤清单**：每个动作 待执行 → 执行中 → 成功 / 失败 / 跳过，附 before→after 与耗时
+- **可展开实时日志**：等宽字体、时间戳、按类型着色、自动滚动到底
+- **顶部进度条 + spinner**：已知步数走确定态进度条，未知阶段走 spinner，并遵循系统「显示动画」开关
+
+进度是引擎层细粒度上报的独立侧通道，**不写入** NDJSON / SQLite 事件日志，不改变既有事件契约。
+
 ### 🧭 修后自检 + 一键回滚
 
 修复后**实测**默认路由 / 物理出口 / DNS / 直连 / 经代理（A~E 原因分类，最多 3 轮），不是「声明成功」。只有「路由仍未走 TUN」会自动还原，其余原因如实报告。所有改动可 `repair --restore` 或页面「回滚全部改动」**一键还原到首次执行前**。
@@ -104,7 +114,7 @@ NetScope Repair 把这些变成 **可读的诊断结论 → 可勾选的修复�
 
 ```bash
 dotnet run --project src/NetScope.Desktop      # 桌面
-dotnet test NetScopeRepair.slnx                # 8 个测试工程，923 项测试
+dotnet test NetScopeRepair.slnx                # 8 个测试工程，929 项测试
 ```
 
 ### CLI

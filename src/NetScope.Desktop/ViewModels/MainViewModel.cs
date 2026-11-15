@@ -37,7 +37,8 @@ public sealed class MainViewModel : ViewModelBase
         QuickRepair = new QuickRepairViewModel(
             new QuickRepairService(sink: new SessionRepairEventSink(services.Session, services.Clock)),
             sessionPath: () => services.Session.SessionPath,
-            copyToClipboard: System.Windows.Clipboard.SetText);
+            copyToClipboard: System.Windows.Clipboard.SetText,
+            dispatcher: _dispatcher);
         Home = new HomeViewModel(services.Session, () => _settings, DiagnoseAsync, HandleErrorAsync, CollectAsync,
             openRepair: () => OpenRepairAsync(null));
         Timeline = new TimelineViewModel();

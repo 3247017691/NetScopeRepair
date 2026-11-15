@@ -1,6 +1,10 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
+using NetScope.Desktop.Services;
 using NetScope.Maintenance;
 using NetScope.Storage.Export;
 
@@ -56,8 +60,9 @@ public sealed class FindingRow
 
 /// <summary>
 /// Repair page: reads the local machine, shows typed findings, and applies only the actions the
-/// user explicitly selected and confirmed. Every applied change is journaled and the same page
-/// can roll everything back, including the TUN three-field fix.
+/// user explicitly selected and confirmed. Every applied change is journaled and can be rolled
+/// back. While a repair runs, a fine-grained progress stream drives a live step list, a real-time
+/// log, a determinate progress bar and an elapsed timer — so a click is never silent.
 /// </summary>
 public sealed class QuickRepairViewModel : ViewModelBase
 {
@@ -65,23 +70,38 @@ public sealed class QuickRepairViewModel : ViewModelBase
     private readonly HandoffExporter? _exporter;
     private readonly Func<string>? _sessionPath;
     private readonly Action<string>? _copyToClipboard;
+    private readonly IUiDispatcher _dispatcher;
+    private readonly IProgress<RepairProgress> _progress;
+    private readonly DispatcherTimer _timer;
+    private readonly Stopwatch _stopwatch = new();
     private RepairPlan? _plan;
     private bool _isBusy;
     private bool _deep;
     private bool _hasPlan;
     private bool _applyConfirmationPending;
     private bool _restoreConfirmationPending;
+    private bool _writeOperation;
+    private RepairRunState _runState = RepairRunState.Idle;
+    private string _currentPhaseText = "待命";
+    private string _elapsedText = "";
+    private double _progressValue;
+    private double _progressMax;
+    private bool _hasDeterminateProgress;
     private string _summaryText = "尚未体检。点击「体检本机」读取真实网络状态（只读，不修改任何设置）。";
     private string _elevationText = "";
     private string _journalText = "";
 
     public QuickRepairViewModel(QuickRepairService? service = null, HandoffExporter? exporter = null,
-        Func<string>? sessionPath = null, Action<string>? copyToClipboard = null)
+        Func<string>? sessionPath = null, Action<string>? copyToClipboard = null, IUiDispatcher? dispatcher = null)
     {
         _service = service ?? new QuickRepairService();
         _exporter = exporter;
         _sessionPath = sessionPath;
         _copyToClipboard = copyToClipboard;
+        _dispatcher = dispatcher ?? new InlineUiDispatcher();
+        _progress = new UiProgress(_dispatcher, ApplyProgress);
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _timer.Tick += (_, _) => ElapsedText = FormatElapsed(_stopwatch.Elapsed);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, null, OnError);
         ApplyCommand = new AsyncRelayCommand(ApplyAsync, null, OnError);
         RestoreCommand = new AsyncRelayCommand(RestoreAsync, null, OnError);
@@ -93,6 +113,8 @@ public sealed class QuickRepairViewModel : ViewModelBase
 
     public ObservableCollection<FindingRow> Findings { get; } = new();
     public ObservableCollection<ActionRow> Actions { get; } = new();
+    public ObservableCollection<StepRow> Steps { get; } = new();
+    public ObservableCollection<LogLine> LogLines { get; } = new();
     public ObservableCollection<string> Messages { get; } = new();
 
     public ICommand RefreshCommand { get; }
@@ -127,6 +149,68 @@ public sealed class QuickRepairViewModel : ViewModelBase
         private set => Set(ref _hasPlan, value);
     }
 
+    public RepairRunState RunState
+    {
+        get => _runState;
+        private set
+        {
+            if (!Set(ref _runState, value)) return;
+            Raise(nameof(RunStateText));
+            Raise(nameof(RunStateTone));
+            Raise(nameof(IsRunIdle));
+        }
+    }
+
+    public bool IsRunIdle => RunState == RepairRunState.Idle;
+    public string RunStateText => RunState switch
+    {
+        RepairRunState.Running => "执行中",
+        RepairRunState.Success => "已完成",
+        RepairRunState.Failed => "有失败",
+        _ => "待命",
+    };
+    public Brush RunStateTone => RunState switch
+    {
+        RepairRunState.Running => UiText.AccentBrush,
+        RepairRunState.Success => UiText.OkBrush,
+        RepairRunState.Failed => UiText.BadBrush,
+        _ => UiText.GapBrush,
+    };
+
+    public string CurrentPhaseText
+    {
+        get => _currentPhaseText;
+        private set => Set(ref _currentPhaseText, value);
+    }
+
+    public string ElapsedText
+    {
+        get => _elapsedText;
+        private set => Set(ref _elapsedText, value);
+    }
+
+    public double ProgressValue
+    {
+        get => _progressValue;
+        private set => Set(ref _progressValue, value);
+    }
+
+    public double ProgressMax
+    {
+        get => _progressMax;
+        private set => Set(ref _progressMax, value);
+    }
+
+    public bool HasDeterminateProgress
+    {
+        get => _hasDeterminateProgress;
+        private set => Set(ref _hasDeterminateProgress, value);
+    }
+
+    public bool HasRun => Steps.Count > 0;
+    public bool HasLog => LogLines.Count > 0;
+    public int LogCount => LogLines.Count;
+
     public string SummaryText
     {
         get => _summaryText;
@@ -157,37 +241,47 @@ public sealed class QuickRepairViewModel : ViewModelBase
 
     private async Task RefreshAsync()
     {
-        IsBusy = true;
+        if (IsBusy) return;
+        BeginOperation("正在体检本机（只读）…", determinate: false, write: false);
         try
         {
-            var plan = await _service.PlanAsync(Deep, CancellationToken.None).ConfigureAwait(true);
-            _plan = plan;
-            Findings.Clear();
-            Actions.Clear();
-            foreach (var finding in plan.Findings) Findings.Add(new FindingRow(finding));
-            foreach (var action in plan.Actions) Actions.Add(new ActionRow(action));
-            var snapshot = plan.Snapshot;
-            SummaryText = $"观测 {snapshot.ObservedAt:HH:mm:ss} · 有网出口 if={snapshot.ActiveEgressIndex} {snapshot.ActiveEgressAlias} "
-                + $"· 代理端口 {(snapshot.WorkingProxyPort is null ? "无" : snapshot.WorkingProxyPort.ToString())} "
-                + $"· 发现 {plan.Findings.Count} 项 · 动作 {plan.Actions.Count} 项";
-            ElevationText = snapshot.IsElevated
-                ? "当前以管理员运行：接口度量、WinHTTP、机器级变量都可以执行。"
-                : "当前非管理员：接口度量 / WinHTTP / 机器级变量会被如实跳过；如需执行请以管理员启动本程序。";
-            JournalText = _service.Journal.HasBackup
-                ? "已有可回滚备份：" + _service.Journal.Path
-                : "尚无回滚备份（执行动作后会自动生成）。";
-            HasPlan = true;
-            _applyConfirmationPending = false;
-            _restoreConfirmationPending = false;
-            Raise(nameof(ApplyButtonText));
-            Raise(nameof(RestoreButtonText));
-            Raise(nameof(CanApply));
+            await LoadPlanAsync(stream: true).ConfigureAwait(true);
             StatusMessage = "体检完成（只读）。勾选动作后点「执行所选动作」，会再确认一次才真正写入。";
         }
         finally
         {
-            IsBusy = false;
+            EndOperation();
         }
+    }
+
+    /// <summary>
+    /// Fetch a plan and refresh the selection lists. A quiet refresh (after a write) does not
+    /// stream progress, so it never overwrites the repair's live status, steps or log.
+    /// </summary>
+    private async Task LoadPlanAsync(bool stream = false)
+    {
+        var plan = await _service.PlanAsync(Deep, CancellationToken.None, stream ? _progress : null).ConfigureAwait(true);
+        _plan = plan;
+        Findings.Clear();
+        Actions.Clear();
+        foreach (var finding in plan.Findings) Findings.Add(new FindingRow(finding));
+        foreach (var action in plan.Actions) Actions.Add(new ActionRow(action));
+        var snapshot = plan.Snapshot;
+        SummaryText = $"观测 {snapshot.ObservedAt:HH:mm:ss} · 有网出口 if={snapshot.ActiveEgressIndex} {snapshot.ActiveEgressAlias} "
+            + $"· 代理端口 {(snapshot.WorkingProxyPort is null ? "无" : snapshot.WorkingProxyPort.ToString())} "
+            + $"· 发现 {plan.Findings.Count} 项 · 动作 {plan.Actions.Count} 项";
+        ElevationText = snapshot.IsElevated
+            ? "当前以管理员运行：接口度量、WinHTTP、机器级变量都可以执行。"
+            : "当前非管理员：接口度量 / WinHTTP / 机器级变量会被如实跳过；如需执行请以管理员启动本程序。";
+        JournalText = _service.Journal.HasBackup
+            ? "已有可回滚备份：" + _service.Journal.Path
+            : "尚无回滚备份（执行动作后会自动生成）。";
+        HasPlan = true;
+        _applyConfirmationPending = false;
+        _restoreConfirmationPending = false;
+        Raise(nameof(ApplyButtonText));
+        Raise(nameof(RestoreButtonText));
+        Raise(nameof(CanApply));
     }
 
     /// <summary>Entry from diagnosis/home: refresh, then pre-select the actions mapped to the rule.</summary>
@@ -229,23 +323,22 @@ public sealed class QuickRepairViewModel : ViewModelBase
         }
 
         _applyConfirmationPending = false;
+        Raise(nameof(ApplyButtonText));
         var selected = Actions.Where(row => row.IsSelected).Select(row => row.Id).ToArray();
-        IsBusy = true;
+        BeginOperation("正在执行修复…", determinate: true, write: true);
+        Steps.Clear();
+        foreach (var row in Actions.Where(r => r.IsSelected))
+            Steps.Add(new StepRow(row.Id, row.Title, row.Detail, row.Risk));
+        Raise(nameof(HasRun));
         try
         {
-            var report = await _service.ApplyAsync(_plan, selected, false, CancellationToken.None).ConfigureAwait(true);
-            Messages.Clear();
-            foreach (var result in report.Results)
-                Messages.Add(result.Applied
-                    ? $"✔ {result.Title}  {result.Before} → {result.After}"
-                    : $"· {result.Title}：{result.Error ?? "未执行"}");
-            foreach (var message in report.Messages) Messages.Add(message);
+            var report = await _service.ApplyAsync(_plan, selected, false, CancellationToken.None, _progress).ConfigureAwait(true);
             StatusMessage = $"执行完成：应用 {report.Applied} / 跳过 {report.Skipped} / 失败 {report.Failed}。已打开的程序需重启才认新环境变量。";
-            await RefreshAsync().ConfigureAwait(true);
+            await LoadPlanAsync().ConfigureAwait(true);
         }
         finally
         {
-            IsBusy = false;
+            EndOperation();
         }
     }
 
@@ -260,42 +353,41 @@ public sealed class QuickRepairViewModel : ViewModelBase
             return;
         }
         _restoreConfirmationPending = false;
-        IsBusy = true;
+        Raise(nameof(RestoreButtonText));
+        BeginOperation("正在回滚全部改动…", determinate: true, write: true);
+        Steps.Clear();
+        Raise(nameof(HasRun));
         try
         {
-            var report = await _service.RestoreAsync(false, CancellationToken.None).ConfigureAwait(true);
-            Messages.Clear();
-            foreach (var message in report.Messages) Messages.Add(message);
+            var report = await _service.RestoreAsync(false, CancellationToken.None, _progress).ConfigureAwait(true);
             StatusMessage = $"回滚完成：还原 {report.Restored} 项，失败 {report.Failed} 项。";
-            await RefreshAsync().ConfigureAwait(true);
+            await LoadPlanAsync().ConfigureAwait(true);
         }
         finally
         {
-            IsBusy = false;
+            EndOperation();
         }
     }
 
     private async Task SwitchProxyAsync(bool on)
     {
         if (IsBusy) return;
-        IsBusy = true;
+        BeginOperation(on ? "正在开启代理并对齐端口…" : "正在关闭代理并清理残留…", determinate: true, write: true);
+        Steps.Clear();
+        Raise(nameof(HasRun));
         try
         {
             var report = on
-                ? await _service.ProxyOnAsync(7890, false, CancellationToken.None).ConfigureAwait(true)
-                : await _service.ProxyOffAsync(false, CancellationToken.None).ConfigureAwait(true);
-            Messages.Clear();
-            foreach (var result in report.Results)
-                Messages.Add(result.Applied ? $"✔ {result.Title}" : $"· {result.Title}：{result.Error ?? "跳过"}");
-            foreach (var message in report.Messages) Messages.Add(message);
+                ? await _service.ProxyOnAsync(7890, false, CancellationToken.None, _progress).ConfigureAwait(true)
+                : await _service.ProxyOffAsync(false, CancellationToken.None, _progress).ConfigureAwait(true);
             StatusMessage = on
                 ? "已开启代理并对齐到真实端口；已打开的程序需重启。"
                 : "已关闭代理并清理环境变量：现在全部直连，国内软件不需要开代理。";
-            await RefreshAsync().ConfigureAwait(true);
+            await LoadPlanAsync().ConfigureAwait(true);
         }
         finally
         {
-            IsBusy = false;
+            EndOperation();
         }
     }
 
@@ -316,7 +408,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
             var result = await (_exporter ?? new HandoffExporter())
                 .ExportAsync(path, outDir, null, CancellationToken.None).ConfigureAwait(true);
             (_copyToClipboard ?? System.Windows.Clipboard.SetText)(result.Prompt);
-            Messages.Add("交给 AI：" + result.PackagePath);
+            AddLog(RepairStepKind.Info, "交给 AI：" + result.PackagePath);
             StatusMessage = "交接包已生成，提示词已复制到剪贴板：" + result.PackagePath;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -334,6 +426,110 @@ public sealed class QuickRepairViewModel : ViewModelBase
             : "没有可标记的修复批次（先执行一次修复）。";
     }
 
+    private void BeginOperation(string phase, bool determinate, bool write)
+    {
+        _writeOperation = write;
+        IsBusy = true;
+        RunState = RepairRunState.Running;
+        CurrentPhaseText = phase;
+        HasDeterminateProgress = determinate;
+        ProgressValue = 0;
+        ProgressMax = determinate ? 1 : 0;
+        LogLines.Clear();
+        Raise(nameof(HasLog));
+        Raise(nameof(LogCount));
+        _stopwatch.Restart();
+        ElapsedText = "0.0s";
+        _timer.Start();
+    }
+
+    private void EndOperation()
+    {
+        _timer.Stop();
+        ElapsedText = FormatElapsed(_stopwatch.Elapsed);
+        IsBusy = false;
+        Raise(nameof(CanApply));
+    }
+
+    private void ApplyProgress(RepairProgress p)
+    {
+        AddLog(p.Kind, p.Message + (string.IsNullOrEmpty(p.Detail) ? "" : "  " + p.Detail), p.At);
+        if (p.Kind is RepairStepKind.Phase or RepairStepKind.ActionStart or RepairStepKind.PostCheck or RepairStepKind.Done)
+            CurrentPhaseText = p.Message;
+        if (p.TotalSteps > 0)
+        {
+            ProgressMax = p.TotalSteps;
+            ProgressValue = p.Step;
+            HasDeterminateProgress = true;
+        }
+
+        switch (p.Kind)
+        {
+            case RepairStepKind.ActionStart when p.ActionId is not null:
+            {
+                var row = EnsureStep(p.ActionId, p.ActionTitle ?? p.Message, p.Detail ?? "");
+                row.StartedAt = p.At;
+                row.Status = StepStatus.Running;
+                break;
+            }
+            case RepairStepKind.ActionResult when p.ActionId is not null:
+            {
+                var row = EnsureStep(p.ActionId, p.ActionTitle ?? p.Message, "");
+                row.Status = p.Applied == true ? StepStatus.Success
+                    : (p.Detail?.Contains("跳过") == true || p.Detail?.Contains("管理员") == true) ? StepStatus.Skipped
+                    : StepStatus.Failed;
+                row.ResultText = p.Detail ?? "";
+                if (row.StartedAt != default)
+                    row.ElapsedText = (p.At - row.StartedAt).TotalSeconds.ToString("0.0") + "s";
+                break;
+            }
+            case RepairStepKind.Done when _writeOperation:
+                RunState = p.Applied == false ? RepairRunState.Failed : RepairRunState.Success;
+                break;
+        }
+    }
+
+    private StepRow EnsureStep(string id, string title, string detail)
+    {
+        var row = Steps.FirstOrDefault(s => s.Id == id);
+        if (row is null)
+        {
+            row = new StepRow(id, title, detail, "");
+            Steps.Add(row);
+            Raise(nameof(HasRun));
+        }
+        return row;
+    }
+
+    private void AddLog(RepairStepKind kind, string text, DateTimeOffset? at = null)
+    {
+        var (prefix, tone) = kind switch
+        {
+            RepairStepKind.Phase => ("›", UiText.AccentBrush),
+            RepairStepKind.ActionStart => ("▶", UiText.AccentBrush),
+            RepairStepKind.ActionResult => ("·", UiText.GapBrush),
+            RepairStepKind.PostCheck => ("✓", UiText.OkBrush),
+            RepairStepKind.Info => ("·", UiText.GapBrush),
+            RepairStepKind.Warning => ("!", UiText.WarnBrush),
+            RepairStepKind.Error => ("✕", UiText.BadBrush),
+            RepairStepKind.Done => ("■", UiText.OkBrush),
+            _ => ("·", UiText.GapBrush),
+        };
+        LogLines.Add(new LogLine((at ?? DateTimeOffset.Now).ToLocalTime().ToString("HH:mm:ss"), prefix + " " + text, tone));
+        Raise(nameof(HasLog));
+        Raise(nameof(LogCount));
+    }
+
+    private static string FormatElapsed(TimeSpan elapsed) => elapsed.TotalSeconds.ToString("0.0") + "s";
+
     private void OnError(Exception exception)
-        => StatusMessage = "操作失败：" + exception.GetType().Name + "；没有声称修改成功。";
+    {
+        RunState = RepairRunState.Failed;
+        StatusMessage = "操作失败：" + exception.GetType().Name + "；没有声称修改成功。";
+    }
+
+    private sealed class UiProgress(IUiDispatcher dispatcher, Action<RepairProgress> apply) : IProgress<RepairProgress>
+    {
+        public void Report(RepairProgress value) => dispatcher.Post(() => apply(value));
+    }
 }

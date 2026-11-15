@@ -19,7 +19,7 @@
                         <!-- Status Ring Indicator -->
                         <Border Width="24" Height="24" CornerRadius="12" Background="{Binding HealthTone}" Margin="0,0,12,0" Opacity="0.15" />
                         <Border Width="12" Height="12" CornerRadius="6" Background="{Binding HealthTone}" Margin="-30,0,18,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding HealthTitle}" FontSize="20" FontWeight="Bold" Foreground="{Binding HealthTone}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding HealthTitle}" FontSize="20" FontWeight="SemiBold" Foreground="{Binding HealthTone}" VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding HealthDetail}" Style="{StaticResource Caption}" Margin="0,8,0,0"
                                HorizontalAlignment="Left" FontSize="12.5" TextWrapping="Wrap" LineHeight="18" />
