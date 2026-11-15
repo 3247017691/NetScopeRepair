@@ -126,8 +126,21 @@ public sealed class WindowsMaintenanceExecutor : IMaintenanceExecutor
             var netsh = await _runner.RunAsync("netsh", new[] { "interface", "ipv4", "set", "interface",
                 index.ToString(CultureInfo.InvariantCulture), "ignoredefaultroutes=disabled" }, cancellationToken).ConfigureAwait(false);
             if (!netsh.Ok)
+            {
+                // The metric write already landed; undo it so a failed apply never leaks an unjournaled change.
+                var preMetric = int.Parse(action.Parameters["PreMetric"], CultureInfo.InvariantCulture);
+                var rollback = action.Parameters["PreAuto"] == "Enabled"
+                    ? "Set-NetIPInterface -InterfaceIndex " + index.ToString(CultureInfo.InvariantCulture)
+                        + " -AddressFamily IPv4 -AutomaticMetric Enabled -ErrorAction Stop; 'OK'"
+                    : "Set-NetIPInterface -InterfaceIndex " + index.ToString(CultureInfo.InvariantCulture)
+                        + " -AddressFamily IPv4 -InterfaceMetric " + preMetric.ToString(CultureInfo.InvariantCulture)
+                        + " -AutomaticMetric Disabled -ErrorAction Stop; 'OK'";
+                var restored = await _runner.RunPowerShellAsync(rollback, cancellationToken).ConfigureAwait(false);
+                var rollbackOk = restored.Ok && restored.StandardOutput.Contains("OK", StringComparison.Ordinal);
                 return new ActionResult(action.Id, action.Title, false, action.Current, null,
-                    "netsh ignoredefaultroutes 失败：" + netsh.StandardError);
+                    "netsh ignoredefaultroutes 失败：" + netsh.StandardError
+                    + (rollbackOk ? "；已还原度量" : "；度量还原也失败：" + restored.StandardError));
+            }
         }
         return new ActionResult(action.Id, action.Title, true, action.Current, "1/Disabled/Disabled", null);
     }

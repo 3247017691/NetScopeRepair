@@ -365,6 +365,46 @@ public sealed class MaintenanceTests
     }
 
     [Fact]
+    public async Task Fix_tun_priority_rolls_back_metric_when_netsh_fails()
+    {
+        var runner = new FakeCommandRunner();
+        runner.Results.Enqueue(new CommandResult(0, "OK", ""));
+        runner.Results.Enqueue(new CommandResult(1, "", "需要管理员"));
+        runner.Results.Enqueue(new CommandResult(0, "OK", ""));
+        var executor = new WindowsMaintenanceExecutor(runner);
+
+        var result = await executor.ApplyAsync(TunAction(preIgnore: "Enabled"), CancellationToken.None);
+
+        Assert.False(result.Applied);
+        Assert.Contains("netsh", result.Error);
+        Assert.Contains("已还原度量", result.Error);
+        Assert.Contains(runner.Scripts, s => s.Contains("-InterfaceIndex 7") && s.Contains("-AutomaticMetric Enabled"));
+        Assert.Equal(2, runner.Scripts.Count);
+    }
+
+    [Fact]
+    public async Task Fix_tun_priority_rolls_back_fixed_metric_when_pre_auto_was_disabled()
+    {
+        var runner = new FakeCommandRunner();
+        runner.Results.Enqueue(new CommandResult(0, "OK", ""));
+        runner.Results.Enqueue(new CommandResult(1, "", "拒绝访问"));
+        runner.Results.Enqueue(new CommandResult(0, "OK", ""));
+        var executor = new WindowsMaintenanceExecutor(runner);
+        var action = TunAction(preIgnore: "Enabled") with
+        {
+            Parameters = new Dictionary<string, string>
+            {
+                ["Index"] = "7", ["PreMetric"] = "4225", ["PreAuto"] = "Disabled", ["PreIgnore"] = "Enabled",
+            },
+        };
+
+        var result = await executor.ApplyAsync(action, CancellationToken.None);
+
+        Assert.False(result.Applied);
+        Assert.Contains(runner.Scripts, s => s.Contains("-InterfaceMetric 4225") && s.Contains("-AutomaticMetric Disabled"));
+    }
+
+    [Fact]
     public async Task Restore_tun_priority_replays_the_original_three_fields()
     {
         var runner = new FakeCommandRunner();
