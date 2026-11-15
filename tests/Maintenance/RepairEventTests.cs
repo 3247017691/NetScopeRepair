@@ -8,8 +8,10 @@ public sealed class RepairEventTests
     {
         public List<RepairEvent> Events { get; } = new();
         public bool Throw { get; set; }
+        public Exception? ThrowException { get; set; }
         public Task EmitAsync(IReadOnlyList<RepairEvent> events, CancellationToken ct)
         {
+            if (ThrowException is not null) throw ThrowException;
             if (Throw) throw new IOException("disk full");
             Events.AddRange(events);
             return Task.CompletedTask;
@@ -162,6 +164,26 @@ public sealed class RepairEventTests
     public async Task Sink_failure_does_not_fail_the_repair()
     {
         var sink = new FakeSink { Throw = true };
+        var snapshot = EmptySnapshot() with
+        {
+            ProxyLayers = new[] { new ProxyLayerSnapshot("User", "HTTP_PROXY", "http://127.0.0.1:7890", 7890, false) },
+        };
+        var service = Service(sink, snapshot);
+        var plan = await service.PlanAsync(false, CancellationToken.None);
+
+        var report = await service.ApplyAsync(plan, null, false, CancellationToken.None);
+
+        Assert.Equal(0, report.Failed);
+        Assert.Contains(report.Messages, m => m.Contains("事件写入失败"));
+    }
+
+    [Fact]
+    public async Task Sink_encoding_failure_does_not_fail_the_repair()
+    {
+        var sink = new FakeSink
+        {
+            ThrowException = new InvalidDataException("The event log is not valid UTF-8; append refused."),
+        };
         var snapshot = EmptySnapshot() with
         {
             ProxyLayers = new[] { new ProxyLayerSnapshot("User", "HTTP_PROXY", "http://127.0.0.1:7890", 7890, false) },

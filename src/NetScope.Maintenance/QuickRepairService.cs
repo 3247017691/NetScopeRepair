@@ -195,7 +195,7 @@ public sealed class QuickRepairService
             await _sink.EmitAsync(events, cancellationToken).ConfigureAwait(false);
             return null;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {
             return "修复事件写入失败：" + exception.Message + "（修复本身不受影响）";
         }
