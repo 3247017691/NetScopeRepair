@@ -16,8 +16,7 @@ public sealed class AppServices : IDisposable
         AppSettings settings,
         IClock clock,
         ObservationSession session,
-        HttpProbeTransport transport,
-        IRepairGateway? repair = null)
+        HttpProbeTransport transport)
     {
         Paths = paths;
         SettingsStore = settingsStore;
@@ -25,7 +24,6 @@ public sealed class AppServices : IDisposable
         Clock = clock;
         Session = session;
         Transport = transport;
-        Repair = repair ?? new UnavailableRepairGateway();
     }
 
     public AppPaths Paths { get; }
@@ -42,9 +40,6 @@ public sealed class AppServices : IDisposable
 
     /// <summary>T08. Null until the export implementation is wired.</summary>
     public IIncidentExporter? Exporter { get; set; }
-
-    /// <summary>T16 repair gateway; the delivery default is unavailable and never writes.</summary>
-    public IRepairGateway Repair { get; }
 
     /// <summary>T09. Null until adapters are wired.</summary>
     public IClientStatusProvider? Clients { get; set; }
@@ -82,17 +77,7 @@ public static class Composition
             : NetScope.Adapters.AdaptersHost.CreateDefault();
         var session = new ObservationSession(collector, probes, clock, resolvedPaths, synthetic,
             evidenceSource: adapters?.Evidence);
-        IRepairGateway repair = synthetic
-            ? new PreviewOnlyRepairGateway(new SyntheticRepairPreviewSource(() => DateTimeOffset.UtcNow), new RepairGateView
-            {
-                Enabled = false,
-                Text = "执行入口已禁用（Disabled）",
-                Reasons = UnavailableRepairGateway.DeliveryReasons
-                    .Concat(new[] { "合成演示计划：不是本机观测，也不是可执行计划。" })
-                    .ToArray(),
-            })
-            : new UnavailableRepairGateway();
-        var services = new AppServices(resolvedPaths, settingsStore, settings, clock, session, transport, repair)
+        var services = new AppServices(resolvedPaths, settingsStore, settings, clock, session, transport)
         {
             Exporter = new NetScope.Storage.Export.IncidentExporter(),
         };

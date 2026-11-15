@@ -36,7 +36,6 @@ public sealed class MainViewModel : ViewModelBase
         Home = new HomeViewModel(services.Session, () => _settings, DiagnoseAsync, HandleErrorAsync, CollectAsync);
         Timeline = new TimelineViewModel();
         Diagnoses = new DiagnosesViewModel();
-        Repair = new RepairViewModel(services.Repair, services.Clock);
         QuickRepair = new QuickRepairViewModel();
         CaseReplay = new CaseReplayViewModel();
         Clients = new ClientsViewModel(services.Clients, services.Explanations);
@@ -54,8 +53,6 @@ public sealed class MainViewModel : ViewModelBase
                 "M12 2l8 4v6c0 5.25-3.5 10-8 11-4.5-1-8-5.75-8-11V6l8-4zm-2 10l2 2 4-4"),
             new NavSection("案例回放", "固定规则重放本地故障包", CaseReplay,
                 "M4 4h16v12H4zM8 20h8M12 16v4M9 9l3-3 3 3M12 6v5"),
-            new NavSection("修复", "TUN 深度计划（门禁 Disabled）", Repair,
-                "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z"),
             new NavSection("快速修复", "本机真实体检 · 可回滚执行", QuickRepair,
                 "M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"),
             new NavSection("多客户端", "只读状态与依赖解释", Clients,
@@ -85,11 +82,8 @@ public sealed class MainViewModel : ViewModelBase
 
     public DiagnosesViewModel Diagnoses { get; }
 
-    public RepairViewModel Repair { get; }
-
     /// <summary>
-    /// Real, user-confirmed quick repair. Independent of the TUN three-field gateway, which stays
-    /// disabled under the G3 gate. This one reads and writes the local machine.
+    /// Real, user-confirmed quick repair. This one reads and writes the local machine.
     /// </summary>
     public QuickRepairViewModel QuickRepair { get; }
 
@@ -264,15 +258,6 @@ public sealed class MainViewModel : ViewModelBase
 
     public async Task ExitAsync()
     {
-        try
-        {
-            await Repair.PrepareExitAsync().ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
-        {
-            AppLog.Write("repair_exit_finalize_failed:" + exception.GetType().Name);
-        }
-
         try
         {
             await _services.Session.StopAsync().ConfigureAwait(false);

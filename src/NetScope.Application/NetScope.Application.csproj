@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NetScope.Domain\NetScope.Domain.csproj" />
-    <ProjectReference Include="..\NetScope.Repair\NetScope.Repair.csproj" />
   </ItemGroup>
 
 </Project>
