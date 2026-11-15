@@ -264,6 +264,74 @@ public sealed class MaintenanceTests
         Assert.Equal("192.168.1.5", facts.SourceAddress4);
     }
 
+    private static TunInterfaceSnapshot Tun(int index = 7, int metric = 4225, string auto = "Enabled", string ignore = "Disabled")
+        => new(index, "Mihomo", metric, auto, ignore, 9000, new[] { "198.18.0.1" });
+
+    [Fact]
+    public void Tun_with_automatic_metric_gets_a_fix_action_with_three_field_backup()
+    {
+        var snapshot = Snapshot() with { TunInterfaces = new[] { Tun() } };
+        var plan = MaintenancePlanner.Build(snapshot);
+        Assert.Contains(plan.Findings, f => f.Code == "TUN_PRIORITY");
+        var action = Assert.Single(plan.Actions, a => a.Kind == "FixTunPriority");
+        Assert.Equal("fix-tun-priority:7", action.Id);
+        Assert.Equal("4225/Enabled/Disabled", action.Current);
+        Assert.Equal("1/Disabled/Disabled", action.Desired);
+        Assert.True(action.RequiresElevation);
+        Assert.True(action.SelectedByDefault);
+        Assert.Equal("Enabled", action.Parameters["PreAuto"]);
+    }
+
+    [Fact]
+    public void Tun_already_at_metric_one_with_ignore_off_gets_no_action()
+    {
+        var snapshot = Snapshot() with { TunInterfaces = new[] { Tun(metric: 1, auto: "Disabled") } };
+        var plan = MaintenancePlanner.Build(snapshot);
+        Assert.DoesNotContain(plan.Actions, a => a.Kind == "FixTunPriority");
+        Assert.DoesNotContain(plan.Findings, f => f.Code == "TUN_PRIORITY");
+    }
+
+    [Fact]
+    public void Tun_with_ignore_default_routes_enabled_is_fixed_even_at_metric_one()
+    {
+        var snapshot = Snapshot() with { TunInterfaces = new[] { Tun(metric: 1, auto: "Disabled", ignore: "Enabled") } };
+        var plan = MaintenancePlanner.Build(snapshot);
+        var action = Assert.Single(plan.Actions, a => a.Kind == "FixTunPriority");
+        Assert.Equal("Enabled", action.Parameters["PreIgnore"]);
+    }
+
+    [Fact]
+    public void Two_tuns_are_reported_as_conflict()
+    {
+        var snapshot = Snapshot() with { TunInterfaces = new[] { Tun(7), Tun(9) } };
+        var plan = MaintenancePlanner.Build(snapshot);
+        Assert.Contains(plan.Findings, f => f.Code == "MULTIPLE_TUN");
+    }
+
+    [Fact]
+    public void Candidate_port_owned_by_non_client_process_is_named()
+    {
+        var snapshot = Snapshot(listening: new[] { 7890 }) with
+        {
+            PortOwners = new[] { new PortOwnerSnapshot(7890, 4321, "SomeUpdater") },
+        };
+        var plan = MaintenancePlanner.Build(snapshot);
+        var finding = Assert.Single(plan.Findings, f => f.Code == "PORT_CONFLICT");
+        Assert.Contains("SomeUpdater", finding.Detail);
+        Assert.DoesNotContain(plan.Actions, a => a.Id.Contains("port", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Two_proxy_clients_listening_are_named_without_action()
+    {
+        var snapshot = Snapshot(listening: new[] { 7890, 7892 }) with
+        {
+            PortOwners = new[] { new PortOwnerSnapshot(7890, 1, "verge-mihomo"), new PortOwnerSnapshot(7892, 2, "Nice加速") },
+        };
+        var plan = MaintenancePlanner.Build(snapshot);
+        Assert.Contains(plan.Findings, f => f.Code == "PORT_CONFLICT" && f.Detail.Contains("verge-mihomo") && f.Detail.Contains("Nice加速"));
+    }
+
     private static QuickRepairService Service(MaintenanceSnapshot snapshot, FakeExecutor executor,
         MaintenanceJournalStore? store = null)
         => new(new FakeProbe(snapshot), executor, store ?? new MaintenanceJournalStore(TempJournal.NewPath()));

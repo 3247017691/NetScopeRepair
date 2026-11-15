@@ -178,6 +178,63 @@ public static class MaintenancePlanner
             }
         }
 
+        // ---- 3.5 TUN priority (script fix-tun-priority semantics; TUN adapter only) ----
+        var tuns = snapshot.TunInterfaces ?? Array.Empty<TunInterfaceSnapshot>();
+        if (tuns.Count > 1)
+        {
+            findings.Add(new Finding("MULTIPLE_TUN", "发现多个 TUN 网卡",
+                "两个客户端同时开 TUN 会抢 127.0.0.1 端口和默认路由，建议只留一个：" +
+                string.Join("、", tuns.Select(t => $"if={t.Index} {t.Alias}")),
+                FindingSeverity.Warning,
+                tuns.Select(t => $"if={t.Index} {t.Alias} metric={t.InterfaceMetric}/{t.AutomaticMetric}").ToArray()));
+        }
+        foreach (var tun in tuns)
+        {
+            var needsMetric = tun.AutomaticMetric == "Enabled" || tun.InterfaceMetric > 1;
+            var needsIgnore = tun.IgnoreDefaultRoutes == "Enabled";
+            if (!needsMetric && !needsIgnore) continue;
+            findings.Add(new Finding("TUN_PRIORITY", "TUN 优先级未生效：" + tun.Alias,
+                $"if={tun.Index} 度量={tun.InterfaceMetric}（自动={tun.AutomaticMetric}）IgnoreDefaultRoutes={tun.IgnoreDefaultRoutes}；" +
+                "默认路由可能没走 TUN，表现为 fake-ip DNS 正常但全部超时。",
+                FindingSeverity.Critical,
+                new[] { $"if={tun.Index} {tun.Alias}", $"metric={tun.InterfaceMetric}/{tun.AutomaticMetric}", $"ignore={tun.IgnoreDefaultRoutes}" }));
+            actions.Add(new RepairAction(
+                "fix-tun-priority:" + tun.Index, "修复 TUN 优先级（" + tun.Alias + "）",
+                "接口度量 → 1（自动度量关闭）" + (needsIgnore ? "；IgnoreDefaultRoutes → disabled" : "") +
+                "；只动 TUN 网卡，ActiveStore，重开 TUN/重启后可能重置",
+                ActionRisk.Elevated, "FixTunPriority", "if=" + tun.Index,
+                tun.InterfaceMetric + "/" + tun.AutomaticMetric + "/" + tun.IgnoreDefaultRoutes,
+                "1/Disabled/Disabled", true, true,
+                new Dictionary<string, string>
+                {
+                    ["Index"] = tun.Index.ToString(),
+                    ["PreMetric"] = tun.InterfaceMetric.ToString(),
+                    ["PreAuto"] = tun.AutomaticMetric,
+                    ["PreIgnore"] = tun.IgnoreDefaultRoutes,
+                }));
+        }
+
+        // ---- 3.6 Port ownership: name the squatter, never kill it ----
+        var knownClients = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        { "Nice加速", "FlClashCore", "FlClashHelperService", "Apex", "ApexCore", "Clash Verge", "verge-mihomo", "mihomo", "clash", "sing-box" };
+        var owners = snapshot.PortOwners ?? Array.Empty<PortOwnerSnapshot>();
+        foreach (var port in snapshot.ListeningProxyPorts)
+        {
+            var owner = owners.FirstOrDefault(o => o.Port == port);
+            if (owner is null || owner.ProcessName.Length == 0 || knownClients.Contains(owner.ProcessName)) continue;
+            findings.Add(new Finding("PORT_CONFLICT", $"端口 {port} 被非代理进程占用",
+                $"127.0.0.1:{port} 的监听进程是 {owner.ProcessName}（PID {owner.Pid}），不是已知代理客户端；只报告，不结束进程。",
+                FindingSeverity.Warning, new[] { $"port={port} pid={owner.Pid} process={owner.ProcessName}" }));
+        }
+        var clientNames = owners.Where(o => knownClients.Contains(o.ProcessName))
+            .Select(o => o.ProcessName).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (clientNames.Length > 1)
+        {
+            findings.Add(new Finding("PORT_CONFLICT", "多个代理客户端同时监听候选端口",
+                string.Join("、", clientNames) + " 同时在听；两个客户端一定会抢端口，建议只留一个。只报告，不结束进程。",
+                FindingSeverity.Warning, owners.Select(o => $"{o.Port}→{o.ProcessName}({o.Pid})").ToArray()));
+        }
+
         // ---- 4. Cache refresh, only when something else actually changes ----
         if (actions.Count > 0)
         {
