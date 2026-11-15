@@ -332,7 +332,9 @@ internal static class Program
 
     // ------------------------------------------------------------------ real maintenance
 
-    private static QuickRepairService MaintenanceService() => new();
+    private static QuickRepairService MaintenanceService() => new(sink: new NetScope.Storage.NdjsonRepairEventSink(
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "NetScopeRepair", "maintenance", "repair-events.ndjson")));
 
     private static async Task<int> RunStatusAsync()
     {

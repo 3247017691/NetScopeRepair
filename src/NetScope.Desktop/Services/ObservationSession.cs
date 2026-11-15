@@ -541,6 +541,23 @@ public sealed class ObservationSession : IAsyncDisposable
         finally { _writeGate.Release(); }
     }
 
+    /// <summary>Appends repair events to the session log; refuses after the session has stopped.</summary>
+    public async Task<int> AppendRepairEventsAsync(IReadOnlyList<EventEnvelope> events, CancellationToken cancellationToken)
+    {
+        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            lock (_stateLock)
+            {
+                if (_stopTask is not null)
+                    throw new InvalidOperationException("The session has been stopped; repair events are not written after exit.");
+            }
+            var outcome = await AppendEventsCoreAsync(events, cancellationToken).ConfigureAwait(false);
+            return outcome.Count;
+        }
+        finally { _writeGate.Release(); }
+    }
+
     /// <summary>Writes incident marker events; the write gate must be held.</summary>
     private async Task<int> PersistTransitionsCoreAsync(IReadOnlyList<IncidentTransition> transitions,
         DateTimeOffset at, CancellationToken cancellationToken)

@@ -15,17 +15,21 @@ public sealed class QuickRepairService
     private readonly IMaintenanceExecutor _executor;
     private readonly MaintenanceJournalStore _journal;
     private readonly IPostCheckProbe _postCheck;
+    private readonly IRepairEventSink? _sink;
+    private string? _lastBatchId;
 
     public QuickRepairService(
         IMaintenanceProbe? probe = null,
         IMaintenanceExecutor? executor = null,
         MaintenanceJournalStore? journal = null,
-        IPostCheckProbe? postCheck = null)
+        IPostCheckProbe? postCheck = null,
+        IRepairEventSink? sink = null)
     {
         _probe = probe ?? new WindowsMaintenanceProbe();
         _executor = executor ?? new WindowsMaintenanceExecutor();
         _journal = journal ?? new MaintenanceJournalStore();
         _postCheck = postCheck ?? new WindowsPostCheckProbe(_probe);
+        _sink = sink;
     }
 
     public MaintenanceJournalStore Journal => _journal;
@@ -50,6 +54,7 @@ public sealed class QuickRepairService
             ? plan.Actions.Where(action => action.SelectedByDefault).Select(action => action.Id)
                 .ToHashSet(StringComparer.Ordinal)
             : selectedIds.ToHashSet(StringComparer.Ordinal);
+        var batchId = Guid.NewGuid().ToString("N");
 
         var results = new List<ActionResult>();
         var entries = new List<JournalEntry>();
@@ -134,6 +139,31 @@ public sealed class QuickRepairService
             }
         }
 
+        if (_sink is not null && !dryRun)
+        {
+            _lastBatchId = batchId;
+            var now = DateTimeOffset.Now;
+            var events = new List<RepairEvent>();
+            MaintenanceSnapshot? after = null;
+            if (results.Any(result => result.Applied))
+            {
+                after = await _probe.CaptureAsync(cancellationToken).ConfigureAwait(false);
+                events.Add(new RepairEvent(batchId, "repair_applied", now, null, null,
+                    "应用 " + results.Count(result => result.Applied) + " 项", null, false, postCheck, plan.Snapshot, after));
+            }
+            foreach (var failed in results.Where(result => !result.Applied && result.Error is not null))
+            {
+                var action = plan.Actions.First(item => item.Id == failed.ActionId);
+                events.Add(new RepairEvent(batchId, "action_failed", now, failed.ActionId, action.Kind, failed.Title,
+                    failed.Error, failed.Error!.Contains("管理员"), null, null, null));
+            }
+            if (postCheck is { Success: false })
+                events.Add(new RepairEvent(batchId, "postcheck_failed", now, null, null,
+                    "修后自检未通过（原因 " + postCheck.CauseClass + "）", null, false, postCheck, plan.Snapshot, after));
+            var sinkError = await EmitSafeAsync(events, cancellationToken).ConfigureAwait(false);
+            if (sinkError is not null) messages.Add(sinkError);
+        }
+
         return new RepairReport(
             dryRun,
             results.Count(result => result.Applied),
@@ -143,6 +173,32 @@ public sealed class QuickRepairService
             journalPath,
             messages,
             PostCheck: postCheck);
+    }
+
+    /// <summary>User says "still broken": persist a user_unresolved event for the last batch.</summary>
+    public async Task<bool> MarkUnresolvedAsync(CancellationToken cancellationToken)
+    {
+        if (_sink is null || _lastBatchId is null) return false;
+        var error = await EmitSafeAsync(new[]
+        {
+            new RepairEvent(_lastBatchId, "user_unresolved", DateTimeOffset.Now, null, null,
+                "用户标记：还是没好", null, false, null, null, null),
+        }, cancellationToken).ConfigureAwait(false);
+        return error is null;
+    }
+
+    private async Task<string?> EmitSafeAsync(IReadOnlyList<RepairEvent> events, CancellationToken cancellationToken)
+    {
+        if (_sink is null || events.Count == 0) return null;
+        try
+        {
+            await _sink.EmitAsync(events, cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return "修复事件写入失败：" + exception.Message + "（修复本身不受影响）";
+        }
     }
 
     public async Task<RestoreReport> RestoreAsync(bool dryRun, CancellationToken cancellationToken)
