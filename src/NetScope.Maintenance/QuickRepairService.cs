@@ -231,6 +231,7 @@ public sealed class QuickRepairService
         var extra = action.Kind switch
         {
             "RaiseInterfaceMetric" or "ResetInterfaceDns" => action.Parameters.TryGetValue("Index", out var i) ? i : "",
+            "FixTunPriority" => action.Parameters.TryGetValue("Index", out var ti) ? ti : "",
             "RemoveGhostDevice" => action.Parameters.TryGetValue("InstanceId", out var id) ? id : "",
             _ => "",
         };
@@ -243,6 +244,7 @@ public sealed class QuickRepairService
             "DisableSystemProxy" or "EnableSystemProxy" or "SetSystemProxyServer" => "Registry|" + action.Target,
             "ResetWinHttpProxy" or "SetWinHttpProxy" => "WinHttp|proxy",
             "RaiseInterfaceMetric" => "InterfaceMetric|" + extra,
+            "FixTunPriority" => "TunPriority|" + extra,
             "ResetInterfaceDns" => "InterfaceDns|" + extra,
             "RemoveGhostDevice" => "Device|" + extra,
             _ => string.Join("|", action.Kind, scope, name, extra),

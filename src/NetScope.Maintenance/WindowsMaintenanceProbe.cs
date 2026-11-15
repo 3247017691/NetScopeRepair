@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http;
 using System.Net.Sockets;
 using System.Security;
 using System.Security.Principal;
@@ -303,25 +302,7 @@ try { $src5=[string](Find-NetRoute -RemoteIPAddress '223.5.5.5' | Select-Object 
         }
     }
 
-    private static async Task<bool> IsWorkingProxyAsync(int port, CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var handler = new HttpClientHandler
-            {
-                Proxy = new WebProxy("http://127.0.0.1:" + port),
-                UseProxy = true,
-            };
-            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(3) };
-            using var response = await client.GetAsync("http://www.baidu.com/", cancellationToken).ConfigureAwait(false);
-            // Any HTTP response means something speaking HTTP is listening; a dead port throws.
-            return (int)response.StatusCode > 0;
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or OperationCanceledException)
-        {
-            return false;
-        }
-    }
+    private static Task<bool> IsWorkingProxyAsync(int port, CancellationToken ct) => ProxyPortTester.IsWorkingAsync(port, null, ct);
 
     public static int ParsePort(string? value)
     {

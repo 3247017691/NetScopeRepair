@@ -319,6 +319,7 @@ public sealed class MaintenanceTests
         var finding = Assert.Single(plan.Findings, f => f.Code == "PORT_CONFLICT");
         Assert.Contains("SomeUpdater", finding.Detail);
         Assert.DoesNotContain(plan.Actions, a => a.Id.Contains("port", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(plan.Actions);
     }
 
     [Fact]
@@ -330,6 +331,120 @@ public sealed class MaintenanceTests
         };
         var plan = MaintenancePlanner.Build(snapshot);
         Assert.Contains(plan.Findings, f => f.Code == "PORT_CONFLICT" && f.Detail.Contains("verge-mihomo") && f.Detail.Contains("Nice加速"));
+        Assert.Empty(plan.Actions);
+    }
+
+    private static RepairAction TunAction(string preIgnore = "Disabled")
+        => new("fix-tun-priority:7", "修复 TUN 优先级（Mihomo）", "", ActionRisk.Elevated, "FixTunPriority",
+            "if=7", "4225/Enabled/" + preIgnore, "1/Disabled/Disabled", true, true,
+            new Dictionary<string, string> { ["Index"] = "7", ["PreMetric"] = "4225", ["PreAuto"] = "Enabled", ["PreIgnore"] = preIgnore });
+
+    [Fact]
+    public async Task Fix_tun_priority_sets_metric_one_and_disables_ignore_only_when_enabled()
+    {
+        var runner = new FakeCommandRunner();
+        var executor = new WindowsMaintenanceExecutor(runner);
+
+        var result = await executor.ApplyAsync(TunAction(preIgnore: "Enabled"), CancellationToken.None);
+
+        Assert.True(result.Applied);
+        Assert.Contains(runner.Scripts, s => s.Contains("-InterfaceMetric 1") && s.Contains("-AutomaticMetric Disabled"));
+        Assert.Contains(runner.Commands, c => c.File == "netsh" && c.Args.Contains("ignoredefaultroutes=disabled"));
+    }
+
+    [Fact]
+    public async Task Fix_tun_priority_skips_netsh_when_ignore_already_disabled()
+    {
+        var runner = new FakeCommandRunner();
+        var executor = new WindowsMaintenanceExecutor(runner);
+
+        var result = await executor.ApplyAsync(TunAction(), CancellationToken.None);
+
+        Assert.True(result.Applied);
+        Assert.DoesNotContain(runner.Commands, c => c.Args.Contains("ignoredefaultroutes=disabled"));
+    }
+
+    [Fact]
+    public async Task Restore_tun_priority_replays_the_original_three_fields()
+    {
+        var runner = new FakeCommandRunner();
+        var executor = new WindowsMaintenanceExecutor(runner);
+        var entry = new JournalEntry("TunPriority|7", "FixTunPriority", "", "if=7",
+            "4225/Enabled/Enabled", "1/Disabled/Disabled", "7", DateTimeOffset.Now);
+
+        var (ok, _) = await executor.RestoreAsync(entry, CancellationToken.None);
+
+        Assert.True(ok);
+        Assert.Contains(runner.Scripts, s => s.Contains("-AutomaticMetric Enabled"));
+        Assert.Contains(runner.Commands, c => c.File == "netsh" && c.Args.Contains("ignoredefaultroutes=enabled"));
+    }
+
+    [Fact]
+    public async Task Flush_dns_also_clears_arp_cache()
+    {
+        var runner = new FakeCommandRunner();
+        var executor = new WindowsMaintenanceExecutor(runner);
+        var action = new RepairAction("flush-dns", "刷新 DNS / 邻居缓存", "", ActionRisk.Safe, "FlushDnsCache",
+            "local", "", "", false, true, new Dictionary<string, string>());
+
+        await executor.ApplyAsync(action, CancellationToken.None);
+
+        Assert.Contains(runner.Commands, c => c.File == "netsh" && c.Args.SequenceEqual(new[] { "interface", "ip", "delete", "arpcache" }));
+    }
+
+    private sealed class StubHandler(System.Net.HttpStatusCode code) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+            => Task.FromResult(new HttpResponseMessage(code));
+    }
+
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.OK, true)]
+    [InlineData(System.Net.HttpStatusCode.NoContent, true)]
+    [InlineData(System.Net.HttpStatusCode.BadGateway, false)]
+    [InlineData(System.Net.HttpStatusCode.Forbidden, false)]
+    public async Task Only_200_204_from_gstatic_counts_as_a_working_proxy(System.Net.HttpStatusCode code, bool expected)
+        => Assert.Equal(expected, await ProxyPortTester.IsWorkingAsync(7890, new StubHandler(code), CancellationToken.None));
+
+    [Fact]
+    public async Task Canned_machine_json_from_the_runner_wires_tun_owners_and_best_route()
+    {
+        // CaptureAsync 还会读注册表/环境变量并做真实 TCP/HTTP 探测，无法完全 fake；
+        // 这里钉住 runner JSON → MachineFacts.Parse → TUN 识别投影这段纯接线，全链路留给 Task 10 smoke。
+        const string json = """
+        {"Interfaces":[{"Index":7,"Alias":"Mihomo","State":"Connected","Metric":4225,"Auto":"Enabled","Dhcp":"Disabled","Ignore":"Enabled","Mtu":9000},
+                       {"Index":21,"Alias":"WLAN","State":"Connected","Metric":35,"Auto":"Enabled","Dhcp":"Enabled","Ignore":"Disabled","Mtu":1500}],
+         "Routes":[{"Index":21,"NextHop":"192.168.1.1"}],
+         "Profiles":[{"Index":21,"Connectivity":"Internet"}],
+         "Addrs":[{"Index":7,"Address":"198.18.0.1"},{"Index":21,"Address":"192.168.1.5"}],
+         "Dns":[],"Ghosts":[],"BestRouteIndex":21,
+         "Adapters":[{"Index":7,"Desc":"Wintun Userspace Tunnel"}],
+         "Owners":[{"Port":7890,"Pid":1234,"Name":"verge-mihomo"}],
+         "Src4":"192.168.1.5","Src5":""}
+        """;
+        var runner = new FakeCommandRunner();
+        runner.Results.Enqueue(new CommandResult(0, json, ""));
+
+        var read = await runner.RunJsonAsync("capture", CancellationToken.None);
+        using var doc = System.Text.Json.JsonDocument.Parse(read.StandardOutput);
+        var facts = WindowsMaintenanceProbe.MachineFacts.Parse(doc.RootElement);
+
+        Assert.Equal(21, facts.BestRouteIndex);
+        var tun = Assert.Single(facts.Interfaces, i => i.Index == 7);
+        Assert.Equal(4225, tun.Metric);
+        Assert.Equal("Enabled", tun.Auto);
+        Assert.Equal("Enabled", tun.IgnoreDefaultRoutes);
+        Assert.Equal(9000, tun.NlMtu);
+        Assert.True(WindowsMaintenanceProbe.IsTun(tun.Alias,
+            facts.Addrs.Where(a => a.Index == tun.Index).Select(a => a.Address).ToArray(),
+            facts.Adapters.First(a => a.Index == tun.Index).Desc));
+        Assert.False(WindowsMaintenanceProbe.IsTun("WLAN",
+            facts.Addrs.Where(a => a.Index == 21).Select(a => a.Address).ToArray(), ""));
+        var owner = Assert.Single(facts.Owners);
+        Assert.Equal(7890, owner.Port);
+        Assert.Equal(1234, owner.Pid);
+        Assert.Equal("verge-mihomo", owner.ProcessName);
+        Assert.Equal("192.168.1.5", facts.SourceAddress4);
     }
 
     private static QuickRepairService Service(MaintenanceSnapshot snapshot, FakeExecutor executor,
@@ -368,6 +483,20 @@ public sealed class MaintenanceTests
         }
     }
 
+    private sealed class FakeCommandRunner : ICommandRunner
+    {
+        public List<string> Scripts { get; } = new();
+        public List<(string File, string[] Args)> Commands { get; } = new();
+        public Queue<CommandResult> Results { get; } = new();
+
+        public Task<CommandResult> RunPowerShellAsync(string script, CancellationToken ct)
+        { Scripts.Add(script); return Task.FromResult(Next()); }
+        public Task<CommandResult> RunAsync(string fileName, string[] arguments, CancellationToken ct)
+        { Commands.Add((fileName, arguments)); return Task.FromResult(Next()); }
+        public Task<CommandResult> RunJsonAsync(string script, CancellationToken ct) => RunPowerShellAsync(script, ct);
+        private CommandResult Next() => Results.Count > 0 ? Results.Dequeue() : new CommandResult(0, "OK", "");
+    }
+
     private sealed class TempJournal : IDisposable
     {
         public TempJournal() => Store = new MaintenanceJournalStore(NewPath());
@@ -382,28 +511,4 @@ public sealed class MaintenanceTests
             if (File.Exists(Store.Path)) File.Delete(Store.Path);
         }
     }
-}
-
-/// <summary>Recording command-runner fake shared by later planner/executor tests; never spawns a process.</summary>
-internal sealed class FakeCommandRunner : ICommandRunner
-{
-    public List<string> PowerShellScripts { get; } = new();
-    public List<(string FileName, string[] Arguments)> ProcessCalls { get; } = new();
-    public CommandResult NextResult { get; set; } = new(0, "", "");
-    public Func<string, CommandResult>? PowerShellResponse { get; set; }
-
-    public Task<CommandResult> RunPowerShellAsync(string script, CancellationToken cancellationToken)
-    {
-        PowerShellScripts.Add(script);
-        return Task.FromResult(PowerShellResponse?.Invoke(script) ?? NextResult);
-    }
-
-    public Task<CommandResult> RunAsync(string fileName, string[] arguments, CancellationToken cancellationToken)
-    {
-        ProcessCalls.Add((fileName, arguments));
-        return Task.FromResult(NextResult);
-    }
-
-    public Task<CommandResult> RunJsonAsync(string script, CancellationToken cancellationToken)
-        => RunPowerShellAsync(script, cancellationToken);
 }

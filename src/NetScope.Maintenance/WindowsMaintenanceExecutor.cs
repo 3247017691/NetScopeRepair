@@ -37,6 +37,7 @@ public sealed class WindowsMaintenanceExecutor : IMaintenanceExecutor
                 "EnableSystemProxy" => SetSystemProxyValue(action, "ProxyEnable", "1"),
                 "ResetWinHttpProxy" or "SetWinHttpProxy" => await SetWinHttpAsync(action, cancellationToken).ConfigureAwait(false),
                 "RaiseInterfaceMetric" => await RaiseMetricAsync(action, cancellationToken).ConfigureAwait(false),
+                "FixTunPriority" => await FixTunPriorityAsync(action, cancellationToken).ConfigureAwait(false),
                 "ResetInterfaceDns" => await ResetDnsAsync(action, cancellationToken).ConfigureAwait(false),
                 "RemoveGhostDevice" => await RemoveDeviceAsync(action, cancellationToken).ConfigureAwait(false),
                 "FlushDnsCache" => await FlushDnsAsync(action, cancellationToken).ConfigureAwait(false),
@@ -111,6 +112,26 @@ public sealed class WindowsMaintenanceExecutor : IMaintenanceExecutor
                 "Set-NetIPInterface 失败（通常需要管理员）：" + result.StandardError);
     }
 
+    private async Task<ActionResult> FixTunPriorityAsync(RepairAction action, CancellationToken cancellationToken)
+    {
+        var index = int.Parse(action.Parameters["Index"], CultureInfo.InvariantCulture);
+        var script = "Set-NetIPInterface -InterfaceIndex " + index.ToString(CultureInfo.InvariantCulture)
+            + " -AddressFamily IPv4 -InterfaceMetric 1 -AutomaticMetric Disabled -ErrorAction Stop; 'OK'";
+        var result = await _runner.RunPowerShellAsync(script, cancellationToken).ConfigureAwait(false);
+        if (!result.Ok || !result.StandardOutput.Contains("OK", StringComparison.Ordinal))
+            return new ActionResult(action.Id, action.Title, false, action.Current, null,
+                "Set-NetIPInterface 失败（通常需要管理员）：" + result.StandardError);
+        if (action.Parameters.TryGetValue("PreIgnore", out var preIgnore) && preIgnore == "Enabled")
+        {
+            var netsh = await _runner.RunAsync("netsh", new[] { "interface", "ipv4", "set", "interface",
+                index.ToString(CultureInfo.InvariantCulture), "ignoredefaultroutes=disabled" }, cancellationToken).ConfigureAwait(false);
+            if (!netsh.Ok)
+                return new ActionResult(action.Id, action.Title, false, action.Current, null,
+                    "netsh ignoredefaultroutes 失败：" + netsh.StandardError);
+        }
+        return new ActionResult(action.Id, action.Title, true, action.Current, "1/Disabled/Disabled", null);
+    }
+
     private async Task<ActionResult> ResetDnsAsync(RepairAction action, CancellationToken cancellationToken)
     {
         var index = int.Parse(action.Parameters["Index"], CultureInfo.InvariantCulture);
@@ -138,6 +159,7 @@ public sealed class WindowsMaintenanceExecutor : IMaintenanceExecutor
         var cleared = await _runner.RunPowerShellAsync(
             "try { Clear-DnsClientCache -ErrorAction Stop } catch {}; 'OK'", cancellationToken).ConfigureAwait(false);
         await _runner.RunAsync("ipconfig", new[] { "/flushdns" }, cancellationToken).ConfigureAwait(false);
+        await _runner.RunAsync("netsh", new[] { "interface", "ip", "delete", "arpcache" }, cancellationToken).ConfigureAwait(false);
         return new ActionResult(action.Id, action.Title, cleared.Ok, "", "flushed",
             cleared.Ok ? null : "Clear-DnsClientCache 不可用，已尝试 ipconfig /flushdns");
     }
@@ -183,6 +205,28 @@ public sealed class WindowsMaintenanceExecutor : IMaintenanceExecutor
                     return result.Ok && result.StandardOutput.Contains("OK", StringComparison.Ordinal)
                         ? (true, "已还原 if=" + index + " 接口度量")
                         : (false, "还原接口度量失败：" + result.StandardError);
+                }
+                case "FixTunPriority":
+                {
+                    var parts = (entry.Old ?? "").Split('/');
+                    var index = int.Parse(entry.Extra ?? entry.Name, CultureInfo.InvariantCulture);
+                    var metric = parts.Length > 0 && int.TryParse(parts[0], out var m) ? m : 0;
+                    var auto = parts.Length > 1 ? parts[1] : "Enabled";
+                    var ignore = parts.Length > 2 ? parts[2] : "Disabled";
+                    var script = auto == "Enabled"
+                        ? "Set-NetIPInterface -InterfaceIndex " + index + " -AddressFamily IPv4 -AutomaticMetric Enabled -ErrorAction Stop; 'OK'"
+                        : "Set-NetIPInterface -InterfaceIndex " + index + " -AddressFamily IPv4 -InterfaceMetric " + metric
+                            + " -AutomaticMetric Disabled -ErrorAction Stop; 'OK'";
+                    var result = await _runner.RunPowerShellAsync(script, cancellationToken).ConfigureAwait(false);
+                    if (!result.Ok || !result.StandardOutput.Contains("OK", StringComparison.Ordinal))
+                        return (false, "还原 TUN 度量失败：" + result.StandardError);
+                    if (ignore == "Enabled")
+                    {
+                        var netsh = await _runner.RunAsync("netsh", new[] { "interface", "ipv4", "set", "interface",
+                            index.ToString(CultureInfo.InvariantCulture), "ignoredefaultroutes=enabled" }, cancellationToken).ConfigureAwait(false);
+                        if (!netsh.Ok) return (false, "还原 IgnoreDefaultRoutes 失败：" + netsh.StandardError);
+                    }
+                    return (true, "已还原 if=" + index + " TUN 三字段");
                 }
                 case "ResetInterfaceDns":
                 {
