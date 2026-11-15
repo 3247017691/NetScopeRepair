@@ -231,6 +231,39 @@ public sealed class MaintenanceTests
     public void Port_parsing_handles_the_shapes_seen_on_this_machine(string value, int expected)
         => Assert.Equal(expected, WindowsMaintenanceProbe.ParsePort(value));
 
+    [Fact]
+    public void Tun_interfaces_are_identified_by_alias_address_or_wintun_description()
+    {
+        // 直接测静态识别逻辑：别名命中 / 198.18 地址命中 / Wintun 描述命中；物理网卡不误判。
+        Assert.True(WindowsMaintenanceProbe.IsTun("Mihomo", Array.Empty<string>(), ""));
+        Assert.True(WindowsMaintenanceProbe.IsTun("以太网 2", new[] { "198.18.0.1" }, ""));
+        Assert.True(WindowsMaintenanceProbe.IsTun("本地连接* 9", Array.Empty<string>(), "Wintun Userspace Tunnel"));
+        Assert.False(WindowsMaintenanceProbe.IsTun("WLAN", new[] { "192.168.1.5" }, "Intel Wi-Fi 6"));
+        Assert.False(WindowsMaintenanceProbe.IsTun("VMware Network Adapter", new[] { "198.18.0.9" }, ""));
+    }
+
+    [Fact]
+    public void Machine_facts_parse_tun_fields_and_port_owners()
+    {
+        const string json = """
+        {"Interfaces":[{"Index":7,"Alias":"Mihomo","State":"Connected","Metric":4225,"Auto":"Enabled","Dhcp":"Disabled","Ignore":"Enabled","Mtu":9000}],
+         "Routes":[{"Index":7,"NextHop":"0.0.0.0"}],"Profiles":[],"Addrs":[{"Index":7,"Address":"198.18.0.1"}],
+         "Dns":[],"Ghosts":[],"BestRouteIndex":7,
+         "Adapters":[{"Index":7,"Desc":"Wintun Userspace Tunnel"}],
+         "Owners":[{"Port":7890,"Pid":1234,"Name":"verge-mihomo"}],
+         "Src4":"192.168.1.5","Src5":"192.168.1.5"}
+        """;
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var facts = WindowsMaintenanceProbe.MachineFacts.Parse(doc.RootElement);
+        var iface = Assert.Single(facts.Interfaces);
+        Assert.Equal("Enabled", iface.IgnoreDefaultRoutes);
+        Assert.Equal(9000, iface.NlMtu);
+        var owner = Assert.Single(facts.Owners);
+        Assert.Equal(7890, owner.Port);
+        Assert.Equal("verge-mihomo", owner.ProcessName);
+        Assert.Equal("192.168.1.5", facts.SourceAddress4);
+    }
+
     private static QuickRepairService Service(MaintenanceSnapshot snapshot, FakeExecutor executor,
         MaintenanceJournalStore? store = null)
         => new(new FakeProbe(snapshot), executor, store ?? new MaintenanceJournalStore(TempJournal.NewPath()));
@@ -281,4 +314,28 @@ public sealed class MaintenanceTests
             if (File.Exists(Store.Path)) File.Delete(Store.Path);
         }
     }
+}
+
+/// <summary>Recording command-runner fake shared by later planner/executor tests; never spawns a process.</summary>
+internal sealed class FakeCommandRunner : ICommandRunner
+{
+    public List<string> PowerShellScripts { get; } = new();
+    public List<(string FileName, string[] Arguments)> ProcessCalls { get; } = new();
+    public CommandResult NextResult { get; set; } = new(0, "", "");
+    public Func<string, CommandResult>? PowerShellResponse { get; set; }
+
+    public Task<CommandResult> RunPowerShellAsync(string script, CancellationToken cancellationToken)
+    {
+        PowerShellScripts.Add(script);
+        return Task.FromResult(PowerShellResponse?.Invoke(script) ?? NextResult);
+    }
+
+    public Task<CommandResult> RunAsync(string fileName, string[] arguments, CancellationToken cancellationToken)
+    {
+        ProcessCalls.Add((fileName, arguments));
+        return Task.FromResult(NextResult);
+    }
+
+    public Task<CommandResult> RunJsonAsync(string script, CancellationToken cancellationToken)
+        => RunPowerShellAsync(script, cancellationToken);
 }

@@ -20,9 +20,9 @@ public sealed class WindowsMaintenanceExecutor : IMaintenanceExecutor
 {
     private const string InternetSettingsPath = @"Software\Microsoft\Windows\CurrentVersion\Internet Settings";
 
-    private readonly WindowsCommandRunner _runner;
+    private readonly ICommandRunner _runner;
 
-    public WindowsMaintenanceExecutor(WindowsCommandRunner? runner = null)
+    public WindowsMaintenanceExecutor(ICommandRunner? runner = null)
         => _runner = runner ?? new WindowsCommandRunner();
 
     public async Task<ActionResult> ApplyAsync(RepairAction action, CancellationToken cancellationToken)

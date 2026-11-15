@@ -43,6 +43,14 @@ public sealed record InterfaceSnapshot(
 
 public sealed record GhostDeviceSnapshot(string InstanceId, string Name, string Status);
 
+/// <summary>One connected TUN adapter; never a candidate for physical-egress metric raising.</summary>
+public sealed record TunInterfaceSnapshot(
+    int Index, string Alias, int InterfaceMetric, string AutomaticMetric,
+    string IgnoreDefaultRoutes, int NlMtu, IReadOnlyList<string> Addresses);
+
+/// <summary>Which process owns a listening candidate proxy port.</summary>
+public sealed record PortOwnerSnapshot(int Port, int Pid, string ProcessName);
+
 /// <summary>
 /// One real, machine-local observation. Every field is either measured or explicitly unavailable;
 /// an empty list never silently means "healthy".
@@ -62,7 +70,10 @@ public sealed record MaintenanceSnapshot(
     int WinHttpPort,
     IReadOnlyList<InterfaceSnapshot> Interfaces,
     IReadOnlyList<GhostDeviceSnapshot> GhostDevices,
-    IReadOnlyList<string> Notes)
+    IReadOnlyList<string> Notes,
+    IReadOnlyList<TunInterfaceSnapshot>? TunInterfaces = null,
+    IReadOnlyList<PortOwnerSnapshot>? PortOwners = null,
+    int BestRouteIndex = 0)
 {
     public bool AnyProxyAlive => WorkingProxyPort is not null;
 }

@@ -9,7 +9,7 @@ namespace NetScope.Maintenance;
 /// No free-form text from the UI ever reaches this class: every caller passes a constant script
 /// with values injected through the argument list, and only structured output is returned.
 /// </summary>
-public sealed class WindowsCommandRunner
+public sealed class WindowsCommandRunner : ICommandRunner
 {
     private static readonly string PowerShellPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.System),
