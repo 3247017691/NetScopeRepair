@@ -216,7 +216,7 @@ public static class MaintenancePlanner
 
         // ---- 3.6 Port ownership: name the squatter, never kill it ----
         var knownClients = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        { "Nice加速", "FlClashCore", "FlClashHelperService", "Apex", "ApexCore", "Clash Verge", "verge-mihomo", "mihomo", "clash", "sing-box" };
+        { "Nice加速", "SkyCore", "FlClashCore", "FlClashHelperService", "Apex", "ApexCore", "Clash Verge", "verge-mihomo", "mihomo", "clash", "sing-box" };
         var owners = snapshot.PortOwners ?? Array.Empty<PortOwnerSnapshot>();
         foreach (var port in snapshot.ListeningProxyPorts)
         {

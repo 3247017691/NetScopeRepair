@@ -443,6 +443,18 @@ public sealed class MaintenanceTests
     }
 
     [Fact]
+    public void Candidate_port_owned_by_SkyCore_is_not_a_conflict()
+    {
+        var snapshot = Snapshot(listening: new[] { 26800 }) with
+        {
+            PortOwners = new[] { new PortOwnerSnapshot(26800, 2680, "SkyCore") },
+        };
+        var plan = MaintenancePlanner.Build(snapshot);
+        Assert.DoesNotContain(plan.Findings, f => f.Code == "PORT_CONFLICT");
+        Assert.Empty(plan.Actions);
+    }
+
+    [Fact]
     public void Two_proxy_clients_listening_are_named_without_action()
     {
         var snapshot = Snapshot(listening: new[] { 7890, 7892 }) with
