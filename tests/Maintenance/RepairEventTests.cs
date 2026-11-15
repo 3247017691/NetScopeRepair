@@ -141,6 +141,24 @@ public sealed class RepairEventTests
         => Assert.False(await Service(new FakeSink()).MarkUnresolvedAsync(CancellationToken.None));
 
     [Fact]
+    public async Task Mark_unresolved_after_a_zero_action_batch_returns_false()
+    {
+        var sink = new FakeSink();
+        var snapshot = EmptySnapshot() with
+        {
+            ProxyLayers = new[] { new ProxyLayerSnapshot("User", "HTTP_PROXY", "http://127.0.0.1:7890", 7890, false) },
+        };
+        var service = Service(sink, snapshot);
+        var plan = await service.PlanAsync(false, CancellationToken.None);
+
+        var report = await service.ApplyAsync(plan, Array.Empty<string>(), false, CancellationToken.None);
+
+        Assert.Equal(0, report.Applied);
+        Assert.Empty(sink.Events);
+        Assert.False(await service.MarkUnresolvedAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Sink_failure_does_not_fail_the_repair()
     {
         var sink = new FakeSink { Throw = true };

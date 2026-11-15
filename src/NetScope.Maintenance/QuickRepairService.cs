@@ -141,7 +141,6 @@ public sealed class QuickRepairService
 
         if (_sink is not null && !dryRun)
         {
-            _lastBatchId = batchId;
             var now = DateTimeOffset.Now;
             var events = new List<RepairEvent>();
             MaintenanceSnapshot? after = null;
@@ -160,6 +159,7 @@ public sealed class QuickRepairService
             if (postCheck is { Success: false })
                 events.Add(new RepairEvent(batchId, "postcheck_failed", now, null, null,
                     "修后自检未通过（原因 " + postCheck.CauseClass + "）", null, false, postCheck, plan.Snapshot, after));
+            if (events.Count > 0) _lastBatchId = batchId;
             var sinkError = await EmitSafeAsync(events, cancellationToken).ConfigureAwait(false);
             if (sinkError is not null) messages.Add(sinkError);
         }
