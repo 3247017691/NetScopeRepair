@@ -55,10 +55,9 @@ public sealed class FindingRow
 }
 
 /// <summary>
-/// Real maintenance page: reads the local machine, shows typed findings, and applies only the
-/// actions the user explicitly selected and confirmed. Every applied change is journaled and the
-/// same page can roll everything back. This is deliberately independent of the TUN three-field
-/// repair gateway, whose delivery gate remains disabled pending the G3 review.
+/// Repair page: reads the local machine, shows typed findings, and applies only the actions the
+/// user explicitly selected and confirmed. Every applied change is journaled and the same page
+/// can roll everything back, including the TUN three-field fix.
 /// </summary>
 public sealed class QuickRepairViewModel : ViewModelBase
 {
@@ -194,6 +193,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
     /// <summary>Entry from diagnosis/home: refresh, then pre-select the actions mapped to the rule.</summary>
     public async Task PreselectForDiagnosisAsync(string? ruleId)
     {
+        if (IsBusy) return;
         await RefreshAsync().ConfigureAwait(true);
         if (ruleId is null) return;
         var kinds = DiagnosisRepairMap.ActionKindsFor(ruleId);

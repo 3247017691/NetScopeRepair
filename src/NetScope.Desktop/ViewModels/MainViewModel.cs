@@ -96,7 +96,7 @@ public sealed class MainViewModel : ViewModelBase
     public DiagnosesViewModel Diagnoses { get; }
 
     /// <summary>
-    /// Real, user-confirmed quick repair. This one reads and writes the local machine.
+    /// Real, user-confirmed repair. This one reads and writes the local machine.
     /// </summary>
     public QuickRepairViewModel QuickRepair { get; }
 
@@ -190,7 +190,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public string DisplaySessionPath => IsDemo ? DemoPath : _services.Session.SessionPath;
 
-    public string AppVersionText => "M3 + 快速修复 · 本机受控写入 · 可回滚";
+    public string AppVersionText => "修复 · 本机受控写入 · 可回滚";
 
     public AppSettings SettingsSnapshot => _settings;
 

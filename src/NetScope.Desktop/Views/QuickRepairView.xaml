@@ -8,7 +8,7 @@
         <!-- Real machine status -->
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
-                <TextBlock Text="本机快速修复（真实执行）" Style="{StaticResource H2}" />
+                <TextBlock Text="本机修复（真实执行）" Style="{StaticResource H2}" />
                 <TextBlock Text="读取本机真实网卡、路由、DNS、代理配置与端口存活情况；只执行你勾选并二次确认的动作，每次改动都可回滚。本页始终读取真实机器，与顶部的合成演示横幅无关。"
                            Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,14" TextWrapping="Wrap" />
 
@@ -115,7 +115,7 @@
         <!-- Boundary note -->
         <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
             <TextBlock FontSize="11.5" Foreground="{StaticResource Warn}" TextWrapping="Wrap"
-                       Text="边界：本页不禁用物理网卡、不删除路由表条目、不动 VMware/系统虚拟适配器、不碰 TUN 三字段。旧的「修复」页仍按 G3 门禁保持 Disabled（TUN 深度修复需签名 broker 与 VM 实验）。" />
+                       Text="边界：本页不禁用物理网卡、不删除路由表条目、不动 VMware/系统虚拟适配器；TUN 修复只动 TUN 网卡（ActiveStore，重开 TUN/重启后可能重置）。全部改动记入回滚备份，可一键还原。" />
         </Border>
     </StackPanel>
 </UserControl>

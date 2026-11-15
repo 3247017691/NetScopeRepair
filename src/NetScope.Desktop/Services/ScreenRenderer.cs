@@ -15,7 +15,7 @@ public static class ScreenRenderer
 {
     private static readonly string[] Slugs =
     {
-        "home", "timeline", "diagnoses", "case-replay", "repair", "quick-repair",
+        "home", "timeline", "diagnoses", "case-replay", "repair",
         "clients", "export", "settings", "help",
     };
 

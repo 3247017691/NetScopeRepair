@@ -63,23 +63,49 @@ public sealed class QuickRepairIntegrationTests : IDisposable
     [Fact]
     public async Task Preselect_for_dx001_selects_only_dead_proxy_actions()
     {
-        var snapshot = new MaintenanceSnapshot(
-            DateTimeOffset.Now, true, 21, "WLAN", null, Array.Empty<int>(),
-            new[] { new ProxyLayerSnapshot("User", "HTTP_PROXY", "http://127.0.0.1:7890", 7890, false) },
-            true, "127.0.0.1:7890", 7890, false, 0,
-            Array.Empty<InterfaceSnapshot>(), Array.Empty<GhostDeviceSnapshot>(), Array.Empty<string>());
-        var service = new QuickRepairService(new StaticProbe(snapshot), new NoopExecutor(),
+        var service = new QuickRepairService(new StaticProbe(DeadProxySnapshot()), new NoopExecutor(),
             new MaintenanceJournalStore(Path.Combine(_dir, "journal.json")),
             new GreenPostCheck());
         var vm = new QuickRepairViewModel(service);
 
         await vm.PreselectForDiagnosisAsync("DX-001");
 
+        Assert.Contains(vm.Actions, a => a.Kind == "ClearProxyEnv");
+        Assert.Contains(vm.Actions, a => a.Kind == "DisableSystemProxy");
         Assert.All(vm.Actions.Where(a => a.Kind is "ClearProxyEnv" or "DisableSystemProxy"),
             a => Assert.True(a.IsSelected));
         Assert.All(vm.Actions.Where(a => a.Kind is not ("ClearProxyEnv" or "DisableSystemProxy")),
             a => Assert.False(a.IsSelected));
     }
+
+    [Fact]
+    public async Task Preselect_while_busy_returns_without_waiting_for_the_inflight_refresh()
+    {
+        var gate = new TaskCompletionSource<MaintenanceSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var service = new QuickRepairService(new GatedProbe(gate.Task), new NoopExecutor(),
+            new MaintenanceJournalStore(Path.Combine(_dir, "journal.json")),
+            new GreenPostCheck());
+        var vm = new QuickRepairViewModel(service);
+
+        vm.RefreshCommand.Execute(null);
+        Assert.True(vm.IsBusy);
+
+        var preselect = vm.PreselectForDiagnosisAsync("DX-001");
+        var finished = await Task.WhenAny(preselect, Task.Delay(2000));
+
+        Assert.Same(preselect, finished);
+        Assert.Empty(vm.Actions);
+
+        gate.SetResult(DeadProxySnapshot());
+        for (var i = 0; i < 100 && vm.IsBusy; i++) await Task.Delay(50);
+        Assert.False(vm.IsBusy);
+    }
+
+    private static MaintenanceSnapshot DeadProxySnapshot() => new(
+        DateTimeOffset.Now, true, 21, "WLAN", null, Array.Empty<int>(),
+        new[] { new ProxyLayerSnapshot("User", "HTTP_PROXY", "http://127.0.0.1:7890", 7890, false) },
+        true, "127.0.0.1:7890", 7890, false, 0,
+        Array.Empty<InterfaceSnapshot>(), Array.Empty<GhostDeviceSnapshot>(), Array.Empty<string>());
 
     public void Dispose()
     {
@@ -89,6 +115,11 @@ public sealed class QuickRepairIntegrationTests : IDisposable
     private sealed class StaticProbe(MaintenanceSnapshot snapshot) : IMaintenanceProbe
     {
         public Task<MaintenanceSnapshot> CaptureAsync(CancellationToken ct) => Task.FromResult(snapshot);
+    }
+
+    private sealed class GatedProbe(Task<MaintenanceSnapshot> gate) : IMaintenanceProbe
+    {
+        public Task<MaintenanceSnapshot> CaptureAsync(CancellationToken ct) => gate;
     }
 
     private sealed class NoopExecutor : IMaintenanceExecutor

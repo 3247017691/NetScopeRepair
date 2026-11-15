@@ -15,8 +15,8 @@ public sealed class DependencyExplainer : IDependencyExplainer
     private const string Unsupported = "unsupported";
 
     private const string BoundaryText =
-        "M1 只读边界：本解释不修改环境变量、不修改 WinINET/WinHTTP/系统代理、不重启 DSH 或 Antigravity，"
-        + "也不向所列目标主机发起任何请求。任何配置变更或修复不属于 M1，M3 及以后才可能在用户明确确认后执行。";
+        "只读边界：本解释不修改环境变量、不修改 WinINET/WinHTTP/系统代理、不重启 DSH 或 Antigravity，"
+        + "也不向所列目标主机发起任何请求。任何配置变更或修复不在本解释范围内，需在「修复」页经用户明确确认后执行。";
 
     public Task<IReadOnlyList<DependencyExplanation>> ExplainAsync(
         IReadOnlyList<ClientStatus> clients,

@@ -242,6 +242,25 @@ public sealed class ReviewRegressionTests
         await session.StopAsync();
     }
 
+    [Fact]
+    public void GoRepair_command_is_disabled_until_a_diagnosis_is_selected()
+    {
+        var vm = new DiagnosesViewModel();
+        Assert.False(vm.GoRepairCommand.CanExecute(null));
+
+        var raised = 0;
+        vm.GoRepairCommand.CanExecuteChanged += (_, _) => raised++;
+
+        vm.Apply(null, new[] { T07R2Data.Diagnosis("d-gorepair", Array.Empty<string>()) },
+            Array.Empty<RuleEvaluationFailure>());
+        Assert.NotNull(vm.Selected);
+        Assert.True(vm.GoRepairCommand.CanExecute(null));
+
+        vm.Selected = null;
+        Assert.False(vm.GoRepairCommand.CanExecute(null));
+        Assert.True(raised >= 2);
+    }
+
     private sealed class HeldProbeRunner : IProbeRunner
     {
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);

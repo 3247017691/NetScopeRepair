@@ -38,7 +38,7 @@ public sealed class DiagnosesViewModel : ViewModelBase
             AreReasonsExpanded = !AreReasonsExpanded;
             return Task.CompletedTask;
         });
-        GoRepairCommand = new AsyncRelayCommand(GoRepairAsync, null, null);
+        GoRepairCommand = new AsyncRelayCommand(GoRepairAsync, () => Selected is not null, null);
     }
 
     public ICommand ToggleReasonsCommand { get; }
@@ -76,6 +76,7 @@ public sealed class DiagnosesViewModel : ViewModelBase
         set
         {
             if (!Set(ref _selected, value)) return;
+            ((AsyncRelayCommand)GoRepairCommand).RaiseCanExecuteChanged();
             SelectedEvidence.Clear();
             if (value is not null)
             {
