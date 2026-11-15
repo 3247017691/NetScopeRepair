@@ -362,6 +362,72 @@ public sealed class MaintenanceTests
         Assert.Contains(plan.Findings, f => f.Code == "MULTIPLE_TUN");
     }
 
+    private static WindowsMaintenanceProbe.MachineFacts TunBesideWlanFacts(
+        string wlanConnectivity = "Internet", int tunMetric = 4225)
+        => new()
+        {
+            Interfaces = new[]
+            {
+                new WindowsMaintenanceProbe.InterfaceFact(21, "WLAN", "Connected", 35, "Enabled", "Enabled", "Disabled", 1500),
+                new WindowsMaintenanceProbe.InterfaceFact(7, "Mihomo", "Connected", tunMetric, "Enabled", "Disabled", "Enabled", 9000),
+            },
+            Routes = new[]
+            {
+                new WindowsMaintenanceProbe.RouteFact(21, "192.168.1.1"),
+                new WindowsMaintenanceProbe.RouteFact(7, "0.0.0.0"),
+            },
+            Profiles = new[]
+            {
+                new WindowsMaintenanceProbe.ProfileFact(21, wlanConnectivity),
+                new WindowsMaintenanceProbe.ProfileFact(7, "NoInternet"),
+            },
+            Addrs = new[]
+            {
+                new WindowsMaintenanceProbe.AddressFact(21, "192.168.1.5"),
+                new WindowsMaintenanceProbe.AddressFact(7, "198.18.0.1"),
+            },
+            Adapters = new[] { new WindowsMaintenanceProbe.AdapterFact(7, "Wintun Userspace Tunnel") },
+            BestRouteIndex = 21,
+        };
+
+    [Fact]
+    public void Tun_with_default_route_never_enters_physical_interfaces_or_active_egress()
+    {
+        var facts = TunBesideWlanFacts();
+
+        var interfaces = WindowsMaintenanceProbe.BuildInterfaces(facts, new List<string>());
+
+        Assert.DoesNotContain(interfaces, item => item.Index == 7);
+        Assert.Contains(interfaces, item => item.Index == 21);
+        Assert.Equal(21, WindowsMaintenanceProbe.PickActiveEgress(facts.BestRouteIndex, interfaces));
+    }
+
+    [Fact]
+    public void Active_egress_fallback_never_anchors_on_a_tun()
+    {
+        var facts = TunBesideWlanFacts(wlanConnectivity: "LocalNetwork", tunMetric: 5);
+
+        var interfaces = WindowsMaintenanceProbe.BuildInterfaces(facts, new List<string>());
+
+        Assert.Equal(21, WindowsMaintenanceProbe.PickActiveEgress(facts.BestRouteIndex, interfaces));
+    }
+
+    [Fact]
+    public void Planner_never_raises_metric_on_a_tun_holding_a_default_route()
+    {
+        var facts = TunBesideWlanFacts();
+        var interfaces = WindowsMaintenanceProbe.BuildInterfaces(facts, new List<string>());
+        var snapshot = Snapshot(
+            activeEgress: WindowsMaintenanceProbe.PickActiveEgress(facts.BestRouteIndex, interfaces),
+            interfaces: interfaces.ToArray()) with { TunInterfaces = new[] { Tun() } };
+
+        var plan = MaintenancePlanner.Build(snapshot);
+
+        Assert.DoesNotContain(plan.Actions, action => action.Kind == "RaiseInterfaceMetric");
+        Assert.DoesNotContain(plan.Findings, finding => finding.Code == "STALE_EGRESS");
+        Assert.Contains(plan.Actions, action => action.Kind == "FixTunPriority" && action.Id == "fix-tun-priority:7");
+    }
+
     [Fact]
     public void Candidate_port_owned_by_non_client_process_is_named()
     {

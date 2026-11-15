@@ -248,7 +248,7 @@ try { $src5=[string](Find-NetRoute -RemoteIPAddress '223.5.5.5' | Select-Object 
         }
     }
 
-    private static IReadOnlyList<InterfaceSnapshot> BuildInterfaces(MachineFacts facts, List<string> notes)
+    public static IReadOnlyList<InterfaceSnapshot> BuildInterfaces(MachineFacts facts, List<string> notes)
     {
         if (facts.Interfaces.Count == 0) return Array.Empty<InterfaceSnapshot>();
 
@@ -256,13 +256,16 @@ try { $src5=[string](Find-NetRoute -RemoteIPAddress '223.5.5.5' | Select-Object 
         foreach (var iface in facts.Interfaces)
         {
             if (!IsPhysical(iface.Alias)) continue;
-            var route = facts.Routes.FirstOrDefault(item => item.Index == iface.Index);
-            var connectivity = facts.Profiles.FirstOrDefault(item => item.Index == iface.Index)?.Connectivity ?? "Unknown";
             var addresses = facts.Addrs.Where(item => item.Index == iface.Index)
                 .Select(item => item.Address)
                 .Where(address => !address.StartsWith("127.", StringComparison.Ordinal)
                     && !address.StartsWith("169.254.", StringComparison.Ordinal))
                 .ToArray();
+            // Spec §4.2: TUN facts live only in TunInterfaces and never become stale-egress candidates.
+            if (IsTun(iface.Alias, addresses,
+                    facts.Adapters.FirstOrDefault(item => item.Index == iface.Index)?.Desc ?? "")) continue;
+            var route = facts.Routes.FirstOrDefault(item => item.Index == iface.Index);
+            var connectivity = facts.Profiles.FirstOrDefault(item => item.Index == iface.Index)?.Connectivity ?? "Unknown";
             var dns = facts.Dns.FirstOrDefault(item => item.Index == iface.Index)?.Servers ?? Array.Empty<string>();
             result.Add(new InterfaceSnapshot(
                 iface.Index, iface.Alias, route is not null, route?.NextHop ?? "",
@@ -274,7 +277,7 @@ try { $src5=[string](Find-NetRoute -RemoteIPAddress '223.5.5.5' | Select-Object 
         return result;
     }
 
-    private static int PickActiveEgress(int bestRouteIndex, IReadOnlyList<InterfaceSnapshot> interfaces)
+    public static int PickActiveEgress(int bestRouteIndex, IReadOnlyList<InterfaceSnapshot> interfaces)
     {
         var withInternet = interfaces.Where(item => item.Connectivity == "Internet").ToArray();
         if (withInternet.Length > 0)
