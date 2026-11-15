@@ -222,6 +222,60 @@ public sealed class MaintenanceTests
         Assert.Contains(report.Messages, message => message.Contains("没有任何端口"));
     }
 
+    [Fact]
+    public async Task Failed_tun_postcheck_auto_restores_metric_and_removes_journal_entry()
+    {
+        var executor = new FakeExecutor();
+        using var temp = new TempJournal();
+        var snapshot = Snapshot() with { TunInterfaces = new[] { Tun() } };
+        var service = new QuickRepairService(new FakeProbe(snapshot), executor, temp.Store,
+            postCheck: new FakePostCheck(new PostCheckObservation(21, true, true, true, true, false)));
+        var plan = await service.PlanAsync(false, CancellationToken.None);
+
+        var report = await service.ApplyAsync(plan, null, false, CancellationToken.None);
+
+        Assert.NotNull(report.PostCheck);
+        Assert.Equal("A/B", report.PostCheck!.CauseClass);
+        Assert.Contains(executor.Restored, e => e.Kind == "FixTunPriority");
+        Assert.False(temp.Store.HasBackup);
+        Assert.Contains(report.Messages, m => m.Contains("自动还原"));
+    }
+
+    [Fact]
+    public async Task Postcheck_retries_up_to_three_times_then_succeeds()
+    {
+        var executor = new FakeExecutor();
+        using var temp = new TempJournal();
+        var postCheck = new FakePostCheck(
+            new PostCheckObservation(21, true, false, true, true, false),
+            new PostCheckObservation(21, true, false, true, true, false),
+            GreenObs());
+        var service = new QuickRepairService(new FakeProbe(Snapshot(layers: new[] { DeadEnv() })), executor, temp.Store, postCheck);
+        var plan = await service.PlanAsync(false, CancellationToken.None);
+
+        var report = await service.ApplyAsync(plan, null, false, CancellationToken.None);
+
+        Assert.Equal(3, postCheck.Calls);
+        Assert.True(report.PostCheck!.Success);
+    }
+
+    [Fact]
+    public async Task Cause_c_never_rolls_back_the_tun_metric()
+    {
+        var executor = new FakeExecutor();
+        using var temp = new TempJournal();
+        var snapshot = Snapshot() with { TunInterfaces = new[] { Tun() } };
+        var service = new QuickRepairService(new FakeProbe(snapshot), executor, temp.Store,
+            postCheck: new FakePostCheck(new PostCheckObservation(7, false, true, false, false, false)));
+        var plan = await service.PlanAsync(false, CancellationToken.None);
+
+        var report = await service.ApplyAsync(plan, null, false, CancellationToken.None);
+
+        Assert.Equal("C", report.PostCheck!.CauseClass);
+        Assert.DoesNotContain(executor.Restored, e => e.Kind == "FixTunPriority");
+        Assert.True(temp.Store.HasBackup);
+    }
+
     [Theory]
     [InlineData("http://127.0.0.1:7890", 7890)]
     [InlineData("127.0.0.1:10809/", 10809)]
@@ -487,14 +541,25 @@ public sealed class MaintenanceTests
         Assert.Equal("192.168.1.5", facts.SourceAddress4);
     }
 
+    private static PostCheckObservation GreenObs(int route = 21) => new(route, true, true, true, true, false);
+
     private static QuickRepairService Service(MaintenanceSnapshot snapshot, FakeExecutor executor,
         MaintenanceJournalStore? store = null)
-        => new(new FakeProbe(snapshot), executor, store ?? new MaintenanceJournalStore(TempJournal.NewPath()));
+        => new(new FakeProbe(snapshot), executor, store ?? new MaintenanceJournalStore(TempJournal.NewPath()),
+            postCheck: new FakePostCheck(GreenObs()));
 
     private sealed class FakeProbe(MaintenanceSnapshot snapshot) : IMaintenanceProbe
     {
         public Task<MaintenanceSnapshot> CaptureAsync(CancellationToken cancellationToken)
             => Task.FromResult(snapshot);
+    }
+
+    private sealed class FakePostCheck(params PostCheckObservation[] observations) : IPostCheckProbe
+    {
+        private readonly Queue<PostCheckObservation> _queue = new(observations);
+        public int Calls { get; private set; }
+        public Task<PostCheckObservation> ObserveAsync(CancellationToken ct)
+        { Calls++; return Task.FromResult(_queue.Count > 1 ? _queue.Dequeue() : _queue.Peek()); }
     }
 
     private sealed class FakeExecutor : IMaintenanceExecutor

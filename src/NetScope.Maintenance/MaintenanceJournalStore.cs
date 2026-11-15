@@ -63,6 +63,17 @@ public sealed class MaintenanceJournalStore
         return Path;
     }
 
+    /// <summary>Removes one entry after an auto-rollback so Restore never replays it twice.</summary>
+    public void Remove(string key)
+    {
+        var document = Load();
+        if (document is null) return;
+        document.Entries.RemoveAll(entry => entry.Key == key);
+        if (document.Entries.Count == 0) { Clear(); return; }
+        document.UpdatedAt = DateTimeOffset.Now;
+        File.WriteAllText(Path, JsonSerializer.Serialize(document, Options));
+    }
+
     public void Clear()
     {
         if (File.Exists(Path)) File.Delete(Path);

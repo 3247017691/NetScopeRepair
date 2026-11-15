@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace NetScope.Maintenance;
 
 /// <summary>
@@ -12,15 +14,18 @@ public sealed class QuickRepairService
     private readonly IMaintenanceProbe _probe;
     private readonly IMaintenanceExecutor _executor;
     private readonly MaintenanceJournalStore _journal;
+    private readonly IPostCheckProbe _postCheck;
 
     public QuickRepairService(
         IMaintenanceProbe? probe = null,
         IMaintenanceExecutor? executor = null,
-        MaintenanceJournalStore? journal = null)
+        MaintenanceJournalStore? journal = null,
+        IPostCheckProbe? postCheck = null)
     {
         _probe = probe ?? new WindowsMaintenanceProbe();
         _executor = executor ?? new WindowsMaintenanceExecutor();
         _journal = journal ?? new MaintenanceJournalStore();
+        _postCheck = postCheck ?? new WindowsPostCheckProbe(_probe);
     }
 
     public MaintenanceJournalStore Journal => _journal;
@@ -90,6 +95,45 @@ public sealed class QuickRepairService
         if (!plan.Snapshot.AnyProxyAlive && !dryRun && results.Any(result => result.Applied))
             messages.Add("代理客户端未运行：当前为纯直连状态，国内软件不需要开代理即可使用。重启已打开的程序后才认新环境变量。");
 
+        PostCheckResult? postCheck = null;
+        if (!dryRun && results.Any(result => result.Applied))
+        {
+            var tunApplied = plan.Actions.FirstOrDefault(action => action.Kind == "FixTunPriority"
+                && results.Any(result => result.ActionId == action.Id && result.Applied));
+            int? expectedRoute = tunApplied is null ? null
+                : int.Parse(tunApplied.Parameters["Index"], CultureInfo.InvariantCulture);
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                var observation = await _postCheck.ObserveAsync(cancellationToken).ConfigureAwait(false);
+                postCheck = PostCheckClassifier.Classify(observation, expectedRoute);
+                if (postCheck.Success) break;
+                if (attempt < 2) await Task.Delay(800, cancellationToken).ConfigureAwait(false);
+            }
+            foreach (var detail in postCheck!.Details) messages.Add("自检：" + detail);
+            if (postCheck.Success)
+            {
+                messages.Add("修后自检通过。");
+            }
+            else
+            {
+                messages.Add("修后自检未通过（原因 " + postCheck.CauseClass + "）。");
+                if (postCheck.CauseClass == "A/B" && tunApplied is not null)
+                {
+                    var entry = entries.FirstOrDefault(item => item.Kind == "FixTunPriority");
+                    if (entry is not null)
+                    {
+                        var (ok, message) = await _executor.RestoreAsync(entry, cancellationToken).ConfigureAwait(false);
+                        if (ok)
+                        {
+                            _journal.Remove(entry.Key);
+                            messages.Add("度量改动未生效（原因 A/B）：已自动还原 TUN 度量。请在客户端关开 TUN / 打开 auto-route 后重新体检。");
+                        }
+                        else messages.Add("自动还原 TUN 度量失败：" + message);
+                    }
+                }
+            }
+        }
+
         return new RepairReport(
             dryRun,
             results.Count(result => result.Applied),
@@ -97,7 +141,8 @@ public sealed class QuickRepairService
             results.Count(result => result.Error is not null),
             results,
             journalPath,
-            messages);
+            messages,
+            PostCheck: postCheck);
     }
 
     public async Task<RestoreReport> RestoreAsync(bool dryRun, CancellationToken cancellationToken)

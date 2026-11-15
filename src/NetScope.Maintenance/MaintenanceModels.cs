@@ -120,7 +120,8 @@ public sealed record RepairReport(
     int Failed,
     IReadOnlyList<ActionResult> Results,
     string? JournalPath,
-    IReadOnlyList<string> Messages);
+    IReadOnlyList<string> Messages,
+    PostCheckResult? PostCheck = null);
 
 /// <summary>One recorded before/after pair. Restore replays Old, not a recomputed guess.</summary>
 public sealed record JournalEntry(
