@@ -108,6 +108,8 @@ public sealed class QuickRepairViewModel : ViewModelBase
     private readonly IProgress<RepairProgress> _progress;
     private readonly DispatcherTimer _timer;
     private readonly Stopwatch _stopwatch = new();
+    private readonly DispatcherTimer _handoffTimer;
+    private readonly Stopwatch _handoffStopwatch = new();
     private RepairPlan? _plan;
     private bool _isBusy;
     private bool _deep;
@@ -138,6 +140,12 @@ public sealed class QuickRepairViewModel : ViewModelBase
         _progress = new UiProgress(_dispatcher, ApplyProgress);
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _timer.Tick += (_, _) => ElapsedText = FormatElapsed(_stopwatch.Elapsed);
+        _handoffTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _handoffTimer.Tick += (_, _) =>
+        {
+            var elapsed = (int)_handoffStopwatch.Elapsed.TotalSeconds;
+            if (IsBusy && elapsed > 8) StatusMessage = "日志较大，仍在打包…已耗时 " + elapsed + "s";
+        };
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, null, OnError);
         ApplyCommand = new AsyncRelayCommand(ApplyAsync, null, OnError);
         RestoreCommand = new AsyncRelayCommand(RestoreAsync, null, OnError);
@@ -485,6 +493,9 @@ public sealed class QuickRepairViewModel : ViewModelBase
     {
         if (IsBusy) return;
         IsBusy = true;
+        StatusMessage = "正在生成交接包（脱敏 + 打包），请稍候…";
+        _handoffStopwatch.Restart();
+        _handoffTimer.Start();
         try
         {
             var path = _sessionPath?.Invoke();
@@ -505,7 +516,11 @@ public sealed class QuickRepairViewModel : ViewModelBase
         {
             StatusMessage = "交接包生成失败：" + exception.Message;
         }
-        finally { IsBusy = false; }
+        finally
+        {
+            _handoffTimer.Stop();
+            IsBusy = false;
+        }
     }
 
     private async Task MarkUnresolvedAsync()
