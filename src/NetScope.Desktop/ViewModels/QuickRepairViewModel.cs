@@ -23,6 +23,8 @@ public sealed class ActionRow : ViewModelBase
         Risk = action.Risk.ToString();
         Kind = action.Kind;
         RequiresElevation = action.RequiresElevation;
+        Current = action.Current;
+        Desired = action.Desired;
         _isSelected = action.SelectedByDefault;
     }
 
@@ -32,6 +34,8 @@ public sealed class ActionRow : ViewModelBase
     public string Risk { get; }
     public string Kind { get; }
     public bool RequiresElevation { get; }
+    public string? Current { get; }
+    public string? Desired { get; }
 
     public bool IsSelected
     {
@@ -58,6 +62,36 @@ public sealed class FindingRow
     public string Severity { get; }
 }
 
+/// <summary>One problem↔fix pair: the finding (when mapped) beside the action that addresses it.</summary>
+public sealed class RepairItemRow : ViewModelBase
+{
+    public RepairItemRow(FindingRow? finding, ActionRow action)
+    {
+        Finding = finding;
+        Action = action;
+        Action.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ActionRow.IsSelected)) Raise(nameof(IsSelected));
+        };
+    }
+
+    public FindingRow? Finding { get; }
+    public ActionRow Action { get; }
+    public bool HasFinding => Finding is not null;
+    public string ProblemText => Finding?.Title ?? Action.Title;
+    public string CodeRef => Finding?.Code ?? "";
+    public string FixText => Action.Title;
+    public string BeforeAfterText =>
+        Action.Current is null && Action.Desired is null ? ""
+        : (Action.Current ?? "未设置") + " → " + (Action.Desired ?? "清除");
+    public string RiskBadge => Action.Badge;
+    public bool IsSelected
+    {
+        get => Action.IsSelected;
+        set => Action.IsSelected = value;
+    }
+}
+
 /// <summary>
 /// Repair page: reads the local machine, shows typed findings, and applies only the actions the
 /// user explicitly selected and confirmed. Every applied change is journaled and can be rolled
@@ -82,6 +116,8 @@ public sealed class QuickRepairViewModel : ViewModelBase
     private bool _restoreConfirmationPending;
     private bool _writeOperation;
     private RepairRunState _runState = RepairRunState.Idle;
+    private NetworkPathModel _networkPath = NetworkPathModel.Unmeasured;
+    private PostCheckResult? _lastPostCheck;
     private string _currentPhaseText = "待命";
     private string _elapsedText = "";
     private double _progressValue;
@@ -116,6 +152,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
     public ObservableCollection<StepRow> Steps { get; } = new();
     public ObservableCollection<LogLine> LogLines { get; } = new();
     public ObservableCollection<string> Messages { get; } = new();
+    public ObservableCollection<RepairItemRow> RepairItems { get; } = new();
 
     public ICommand RefreshCommand { get; }
     public ICommand ApplyCommand { get; }
@@ -130,7 +167,12 @@ public sealed class QuickRepairViewModel : ViewModelBase
         get => _isBusy;
         private set
         {
-            if (Set(ref _isBusy, value)) Raise(nameof(CanApply));
+            if (Set(ref _isBusy, value))
+            {
+                Raise(nameof(CanApply));
+                Raise(nameof(Stage));
+                Raise(nameof(VerdictText));
+            }
         }
     }
 
@@ -146,7 +188,14 @@ public sealed class QuickRepairViewModel : ViewModelBase
     public bool HasPlan
     {
         get => _hasPlan;
-        private set => Set(ref _hasPlan, value);
+        private set
+        {
+            if (Set(ref _hasPlan, value))
+            {
+                Raise(nameof(Stage));
+                Raise(nameof(VerdictText));
+            }
+        }
     }
 
     public RepairRunState RunState
@@ -158,8 +207,28 @@ public sealed class QuickRepairViewModel : ViewModelBase
             Raise(nameof(RunStateText));
             Raise(nameof(RunStateTone));
             Raise(nameof(IsRunIdle));
+            Raise(nameof(Stage));
+            Raise(nameof(VerdictText));
         }
     }
+
+    public NetworkPathModel NetworkPath
+    {
+        get => _networkPath;
+        private set => Set(ref _networkPath, value);
+    }
+
+    public RepairStage Stage =>
+        !HasPlan ? RepairStage.Inspect
+        : IsBusy && _writeOperation ? RepairStage.Execute
+        : RunState is RepairRunState.Success or RepairRunState.Failed ? RepairStage.Verify
+        : RepairStage.Review;
+
+    public string VerdictText =>
+        !HasPlan ? "尚未体检。点击「体检本机」读取真实网络状态（只读，不修改任何设置）。"
+        : Findings.Count == 0 ? "本次体检未发现可修复问题。"
+        : RunState is RepairRunState.Success ? "修复已执行，修后自检见下方实测结果。"
+        : Findings[0].Title + "。" + Findings[0].Detail;
 
     public bool IsRunIdle => RunState == RepairRunState.Idle;
     public string RunStateText => RunState switch
@@ -276,6 +345,14 @@ public sealed class QuickRepairViewModel : ViewModelBase
         JournalText = _service.Journal.HasBackup
             ? "已有可回滚备份：" + _service.Journal.Path
             : "尚无回滚备份（执行动作后会自动生成）。";
+        NetworkPath = NetworkPathModel.FromSnapshot(snapshot, _lastPostCheck);
+        RepairItems.Clear();
+        foreach (var action in Actions)
+        {
+            var finding = Findings.FirstOrDefault(f => KindsForFinding(f.Code).Contains(action.Kind));
+            RepairItems.Add(new RepairItemRow(finding, action));
+        }
+        Raise(nameof(VerdictText));
         HasPlan = true;
         _applyConfirmationPending = false;
         _restoreConfirmationPending = false;
@@ -283,6 +360,15 @@ public sealed class QuickRepairViewModel : ViewModelBase
         Raise(nameof(RestoreButtonText));
         Raise(nameof(CanApply));
     }
+
+    // Planner findings carry maintenance codes (DEAD_PROXY…); the diagnosis map only speaks DX rule ids.
+    private static IReadOnlyList<string> KindsForFinding(string code) =>
+        DiagnosisRepairMap.ActionKindsFor(code switch
+        {
+            "DEAD_PROXY" or "SYSTEM_PROXY_DEAD" => "DX-001",
+            "STALE_EGRESS" or "STALE_DNS" or "GHOST_DEVICE" => "DX-006",
+            _ => code,
+        });
 
     /// <summary>Entry from diagnosis/home: refresh, then pre-select the actions mapped to the rule.</summary>
     public async Task PreselectForDiagnosisAsync(string? ruleId)
@@ -333,6 +419,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
         try
         {
             var report = await _service.ApplyAsync(_plan, selected, false, CancellationToken.None, _progress).ConfigureAwait(true);
+            _lastPostCheck = report.PostCheck;
             StatusMessage = $"执行完成：应用 {report.Applied} / 跳过 {report.Skipped} / 失败 {report.Failed}。已打开的程序需重启才认新环境变量。";
             await LoadPlanAsync().ConfigureAwait(true);
         }

@@ -19,6 +19,8 @@ public enum RepairRunState
     Failed,
 }
 
+public enum RepairStage { Inspect, Review, Execute, Verify }
+
 /// <summary>One action in the live execution step list, with its real-time status and timing.</summary>
 public sealed class StepRow : ViewModelBase
 {
