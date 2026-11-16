@@ -35,6 +35,11 @@ public partial class NetworkPathInstrument : UserControl
         ProxyLabel.Foreground = StateTextBrush(model.Proxy.State);
         ProxyNote.Foreground = StateTextBrush(model.Proxy.State);
         ProxyNote.Text = model.Proxy.Note;
+        LocalLabel.Foreground = StateTextBrush(model.Local.State);
+        EgressLabel.Foreground = StateTextBrush(model.Egress.State);
+        InternetLabel.Foreground = StateTextBrush(model.Internet.State);
+        EgressNote.Visibility = model.Egress.State == PathStationState.Unknown ? Visibility.Visible : Visibility.Collapsed;
+        InternetNote.Visibility = model.Internet.State == PathStationState.Unknown ? Visibility.Visible : Visibility.Collapsed;
         // 故障平线只在代理故障时显示；代理未测得时健康脉冲隐藏，未知不冒充健康
         FaultPath.Visibility = model.Proxy.State == PathStationState.Fault ? Visibility.Visible : Visibility.Collapsed;
         HealthyPath.Visibility = model.Proxy.State == PathStationState.Unknown ? Visibility.Collapsed : Visibility.Visible;

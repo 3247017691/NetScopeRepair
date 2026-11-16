@@ -5,41 +5,401 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:NetScope.Desktop.Controls"
              mc:Ignorable="d" d:DesignWidth="1080">
+    <UserControl.Resources>
+        <!-- Stage stepper chips: numbered in real execution order; current = accent, completed = check. -->
+        <Style x:Key="StageChip" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Surface}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+        <Style x:Key="StageChipBadge" TargetType="Border">
+            <Setter Property="Width" Value="17" />
+            <Setter Property="Height" Value="17" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Background" Value="{StaticResource SubtleSurface}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="StageChipNumber" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="StageChipLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="7,0,0,0" />
+        </Style>
+
+        <!-- Contextual primary button: one button, content/command follow the stage.
+             Review keeps IsEnabled=CanApply: the second-click pending state has IsBusy=false,
+             so confirmation stays clickable while a running operation (IsBusy) disables it. -->
+        <Style x:Key="StagePrimaryButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Content" Value="体检本机（只读）" />
+            <Setter Property="Command" Value="{Binding RefreshCommand}" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="20,10" />
+            <Setter Property="MinWidth" Value="170" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Stage}" Value="Review">
+                    <Setter Property="Content" Value="{Binding ApplyButtonText}" />
+                    <Setter Property="Command" Value="{Binding ApplyCommand}" />
+                    <Setter Property="IsEnabled" Value="{Binding CanApply}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                    <Setter Property="Content" Value="正在执行修复" />
+                    <Setter Property="Command" Value="{Binding ApplyCommand}" />
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                    <Setter Property="Content" Value="重新体检" />
+                    <Setter Property="Command" Value="{Binding RefreshCommand}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Quiet toolbar execution buttons: greyed while busy to prevent repeat clicks.
+             Pending two-click confirmation is not busy, so it is never caught by this. -->
+        <Style x:Key="QuietExecutionButton" TargetType="Button" BasedOn="{StaticResource QuietButton}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <StackPanel>
-        <!-- Control header -->
-        <Border Style="{StaticResource SectionCard}">
-            <StackPanel>
-                <TextBlock Text="本机修复 · 真实执行" Style="{StaticResource Overline}" />
-                <TextBlock Text="读取本机真实网卡、路由、DNS、代理与端口存活；只执行你勾选并二次确认的动作，每次改动都可回滚。"
-                           Style="{StaticResource Caption}" Margin="0,4,0,12" />
+        <!-- 1. Stage stepper -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+            <Border AutomationProperties.Name="阶段 1：体检">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource StageChip}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Stage}" Value="Inspect">
+                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <Border>
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource StageChipBadge}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Inspect">
+                                        <Setter Property="Background" Value="{StaticResource Accent}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Review">
+                                        <Setter Property="Background" Value="{StaticResource OkBg}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                        <Setter Property="Background" Value="{StaticResource OkBg}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                        <Setter Property="Background" Value="{StaticResource OkBg}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="1">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipNumber}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Inspect">
+                                            <Setter Property="Foreground" Value="White" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Review">
+                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+                    <TextBlock Text="体检">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipLabel}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Inspect">
+                                        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                        <Setter Property="FontWeight" Value="Medium" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border AutomationProperties.Name="阶段 2：看清问题">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource StageChip}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Stage}" Value="Review">
+                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <Border>
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource StageChipBadge}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Review">
+                                        <Setter Property="Background" Value="{StaticResource Accent}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                        <Setter Property="Background" Value="{StaticResource OkBg}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                        <Setter Property="Background" Value="{StaticResource OkBg}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="2">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipNumber}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Review">
+                                            <Setter Property="Foreground" Value="White" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+                    <TextBlock Text="看清问题">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipLabel}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Review">
+                                        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                        <Setter Property="FontWeight" Value="Medium" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border AutomationProperties.Name="阶段 3：执行">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource StageChip}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <Border>
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource StageChipBadge}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                        <Setter Property="Background" Value="{StaticResource Accent}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                        <Setter Property="Background" Value="{StaticResource OkBg}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="3">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipNumber}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                            <Setter Property="Foreground" Value="White" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+                    <TextBlock Text="执行">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipLabel}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                        <Setter Property="FontWeight" Value="Medium" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border AutomationProperties.Name="阶段 4：自检">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource StageChip}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <Border>
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource StageChipBadge}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                        <Setter Property="Background" Value="{StaticResource Accent}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="4">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipNumber}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                            <Setter Property="Foreground" Value="White" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+                    <TextBlock Text="自检">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipLabel}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Stage}" Value="Verify">
+                                        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                        <Setter Property="FontWeight" Value="Medium" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
 
-                <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
-                        CornerRadius="6" Padding="12,9">
-                    <StackPanel>
-                        <TextBlock Text="{Binding SummaryText}" FontSize="12.5" Foreground="{StaticResource Ink}" TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding ElevationText}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                        <TextBlock Text="{Binding JournalText}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0" />
-                    </StackPanel>
-                </Border>
+        <!-- 2. Instrument hero: unmeasured renders all-Unknown with — readouts, never implied health -->
+        <controls:NetworkPathInstrument Model="{Binding NetworkPath}" Margin="0,0,0,14" />
 
-                <WrapPanel Margin="0,12,0,0">
-                    <Button Content="体检本机（只读）" Command="{Binding RefreshCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" />
-                    <Button Content="{Binding ApplyButtonText}" Command="{Binding ApplyCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
-                            IsEnabled="{Binding CanApply}" />
-                    <Button Content="{Binding RestoreButtonText}" Command="{Binding RestoreCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,8" />
-                    <Button Content="开代理" Command="{Binding ProxyOnCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,8" />
-                    <Button Content="关代理 · 纯直连" Command="{Binding ProxyOffCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,8" />
-                    <Button Content="交给 AI" Command="{Binding HandoffCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,8" />
-                    <Button Content="还是没好" Command="{Binding MarkUnresolvedCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,8" />
-                    <CheckBox Content="高风险模式" IsChecked="{Binding Deep, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,0,8"
-                              Foreground="{StaticResource Muted}" FontSize="11.5" />
-                </WrapPanel>
-                <TextBlock Text="高风险模式会额外列出「移除幽灵网卡」「重置旧接口静态 DNS」，默认不勾选。接口度量 / WinHTTP / 机器级变量需要管理员权限。"
-                           FontSize="11" Foreground="{StaticResource SubtleText}" TextWrapping="Wrap" Margin="0,2,0,0" />
-            </StackPanel>
-        </Border>
+        <!-- 3. Verdict -->
+        <TextBlock Text="{Binding VerdictText}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,14" />
 
-        <!-- Live execution status band: immediate feedback the moment a command runs -->
+        <!-- 4. Problem-fix paired list -->
+        <StackPanel Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}" Margin="0,0,0,14">
+            <ItemsControl ItemsSource="{Binding RepairItems}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                CornerRadius="12" Padding="16,14" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Top" Margin="0,2,13,0" />
+                                <StackPanel Grid.Column="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding ProblemText}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
+                                        <TextBlock Text="{Binding CodeRef}" Style="{StaticResource MonoSubtle}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                   Visibility="{Binding HasFinding, Converter={StaticResource BoolToVis}}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding FixText}" FontSize="12.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                    <TextBlock Text="{Binding BeforeAfterText}" Margin="0,5,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource MonoSubtle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding BeforeAfterText}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <!-- planner emits empty Current/Desired for cache refresh: no bare arrow line -->
+                                                    <DataTrigger Binding="{Binding BeforeAfterText}" Value=" → ">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                        <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                                CornerRadius="9" Padding="8,2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding RiskBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource Muted}" />
+                                        </Border>
+                                        <TextBlock Text="改动记入 journal，可一键回滚" FontSize="11" Foreground="{StaticResource Muted}"
+                                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="本次体检未发现可修复问题。">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RepairItems.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- 5. Contextual primary button + quiet toolbar -->
+        <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Style="{StaticResource StagePrimaryButton}" VerticalAlignment="Center" />
+            <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Content="开代理" Command="{Binding ProxyOnCommand}" Style="{StaticResource QuietExecutionButton}" Margin="0,0,8,0" />
+                <Button Content="关代理" Command="{Binding ProxyOffCommand}" Style="{StaticResource QuietExecutionButton}" Margin="0,0,8,0" />
+                <Button Content="{Binding RestoreButtonText}" Command="{Binding RestoreCommand}" Style="{StaticResource QuietExecutionButton}" Margin="0,0,8,0" />
+                <Button Content="交给 AI" Command="{Binding HandoffCommand}" Style="{StaticResource QuietExecutionButton}" Margin="0,0,8,0" />
+                <Button Content="还是没好" Command="{Binding MarkUnresolvedCommand}" Style="{StaticResource QuietButton}" Margin="0,0,12,0" />
+                <CheckBox Content="高风险模式" IsChecked="{Binding Deep, Mode=TwoWay}" VerticalAlignment="Center"
+                          Foreground="{StaticResource Muted}" FontSize="11.5" />
+            </WrapPanel>
+        </Grid>
+        <TextBlock Text="高风险模式会额外列出「移除幽灵网卡」「重置旧接口静态 DNS」，默认不勾选。接口度量 / WinHTTP / 机器级变量需要管理员权限。"
+                   FontSize="11" Foreground="{StaticResource SubtleText}" TextWrapping="Wrap" Margin="0,0,0,14" />
+
+        <!-- 6. Live execution status band: immediate feedback the moment a command runs -->
         <Border Style="{StaticResource SectionCard}" Padding="14,12"
                 AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="修复执行状态">
             <StackPanel>
@@ -91,66 +451,6 @@
                 <ProgressBar Style="{StaticResource LinearProgressBar}" Margin="0,10,0,0"
                              Minimum="0" Maximum="{Binding ProgressMax}" Value="{Binding ProgressValue, Mode=OneWay}"
                              Visibility="{Binding HasDeterminateProgress, Converter={StaticResource BoolToVis}}" />
-            </StackPanel>
-        </Border>
-
-        <!-- Findings -->
-        <Border Style="{StaticResource SectionCard}" Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}">
-            <StackPanel>
-                <TextBlock Text="发现的问题" Style="{StaticResource H2}" />
-                <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,8,0,10" />
-                <ItemsControl ItemsSource="{Binding Findings}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{StaticResource SubtleSurface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,9" Margin="0,0,0,8">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Background="{StaticResource WarnBg}" CornerRadius="9" Padding="8,2" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Severity}" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource Warn}" />
-                                        </Border>
-                                        <TextBlock Text="{Binding Code}" Style="{StaticResource MonoSubtle}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="10,0,0,0" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding Detail}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock Text="体检后显示；空列表表示本次没有发现残留，不会伪装成「已修复」。"
-                           FontSize="11" Foreground="{StaticResource SubtleText}" />
-            </StackPanel>
-        </Border>
-
-        <!-- Selectable actions -->
-        <Border Style="{StaticResource SectionCard}" Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}">
-            <StackPanel>
-                <TextBlock Text="可执行动作（勾选后才执行）" Style="{StaticResource H2}" />
-                <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,8,0,10" />
-                <ItemsControl ItemsSource="{Binding Actions}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,9" Margin="0,0,0,8">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Top" Margin="0,2,10,0" />
-                                    <StackPanel Grid.Column="1">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Badge}" FontSize="10.5" Foreground="{StaticResource Accent}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding Title}" FontSize="12.5" Foreground="{StaticResource Ink}" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding Detail}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
             </StackPanel>
         </Border>
 
@@ -208,10 +508,20 @@
             </StackPanel>
         </Border>
 
-        <!-- Real-time log -->
+        <!-- Real-time log: expanded during Execute, collapsed otherwise -->
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
-                <Expander IsExpanded="True" Background="Transparent" BorderThickness="0" Padding="0">
+                <Expander Background="Transparent" BorderThickness="0" Padding="0">
+                    <Expander.Style>
+                        <Style TargetType="Expander">
+                            <Setter Property="IsExpanded" Value="False" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Stage}" Value="Execute">
+                                    <Setter Property="IsExpanded" Value="True" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Expander.Style>
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="实时日志" Style="{StaticResource H2}" VerticalAlignment="Center" />
@@ -240,16 +550,16 @@
                                                     <ColumnDefinition Width="62" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding Time}" FontFamily="Cascadia Mono, Consolas" FontSize="11"
+                                                <TextBlock Grid.Column="0" Text="{Binding Time}" FontFamily="{StaticResource MonoFont}" FontSize="11"
                                                            Foreground="{StaticResource SubtleText}" VerticalAlignment="Top" />
-                                                <TextBlock Grid.Column="1" Text="{Binding Text}" FontFamily="Cascadia Mono, Consolas" FontSize="11.5"
+                                                <TextBlock Grid.Column="1" Text="{Binding Text}" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
                                                            Foreground="{Binding Tone}" TextWrapping="Wrap" LineHeight="17" />
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
-                            <TextBlock Text="执行修复或体检时，这里会逐行实时输出。" FontFamily="Cascadia Mono, Consolas" FontSize="11.5"
+                            <TextBlock Text="执行修复或体检时，这里会逐行实时输出。" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
                                        Foreground="{StaticResource SubtleText}" Margin="12,10" VerticalAlignment="Top"
                                        Visibility="{Binding HasLog, Converter={StaticResource InverseBoolToVis}}" />
                         </Grid>
@@ -258,7 +568,16 @@
             </StackPanel>
         </Border>
 
-        <!-- Boundary note -->
+        <!-- Observation context: what was measured, elevation limits, journal backup -->
+        <Border Style="{StaticResource SubtleCard}" Margin="0,0,0,12" Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <TextBlock Text="{Binding SummaryText}" FontSize="12.5" Foreground="{StaticResource Ink}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding ElevationText}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                <TextBlock Text="{Binding JournalText}" FontSize="11.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- 7. Boundary note -->
         <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
             <TextBlock FontSize="11.5" Foreground="{StaticResource Warn}" TextWrapping="Wrap"
                        Text="边界：本页不禁用物理网卡、不删除路由表条目、不动 VMware/系统虚拟适配器；TUN 修复只动 TUN 网卡（ActiveStore，重开 TUN/重启后可能重置）。全部改动记入回滚备份，可一键还原。" />

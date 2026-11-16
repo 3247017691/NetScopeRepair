@@ -28,6 +28,11 @@
                     <Ellipse x:Name="InternetNode" Canvas.Left="734" Canvas.Top="58" Width="12" Height="12" Fill="{StaticResource Unknown}"/>
                     <TextBlock x:Name="ProxyLabel" Canvas.Left="232" Canvas.Top="86" Text="代理端口" FontSize="12" Foreground="{StaticResource Bad}" FontWeight="SemiBold"/>
                     <TextBlock x:Name="ProxyNote" Canvas.Left="232" Canvas.Top="102" FontSize="10.5" Foreground="{StaticResource Bad}"/>
+                    <TextBlock x:Name="LocalLabel" Canvas.Left="8" Canvas.Top="86" Text="本机" FontSize="12" Foreground="{StaticResource SubtleText}"/>
+                    <TextBlock x:Name="EgressLabel" Canvas.Left="488" Canvas.Top="86" Text="出口" FontSize="12" Foreground="{StaticResource SubtleText}"/>
+                    <TextBlock x:Name="EgressNote" Canvas.Left="484" Canvas.Top="102" Text="未测得" FontSize="10.5" Foreground="{StaticResource SubtleText}" Visibility="Collapsed"/>
+                    <TextBlock x:Name="InternetLabel" Canvas.Right="2" Canvas.Top="86" Text="互联网" FontSize="12" Foreground="{StaticResource SubtleText}"/>
+                    <TextBlock x:Name="InternetNote" Canvas.Right="2" Canvas.Top="102" Text="未测得" FontSize="10.5" Foreground="{StaticResource SubtleText}" Visibility="Collapsed"/>
                 </Canvas>
             </Viewbox>
             <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
