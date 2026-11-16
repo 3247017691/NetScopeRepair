@@ -166,7 +166,7 @@ NetScope Repair 是 Windows 代理网络的诊断与受控修复工具（Nice/Ap
 
 ### 6.5 步骤 / 日志 / 进度
 
-保留 `StepRow` 实时清单、`LogLines`、`LinearProgressBar`、计时（现有流式侧通道）。日志用 Expander：Execute 默认展开，其余默认折叠。浅色控制台。步骤逐条落定动画。
+保留 `StepRow` 实时清单、`LogLines`、`LinearProgressBar`、计时（现有流式侧通道）。日志用 Expander：Execute 默认展开，其余默认折叠。浅色控制台。步骤逐条落定动画。反馈强度按 §7.1 分级匹配实际耗时；交接包（`HandoffAsync`，现仅 `IsBusy`）补 busy + spinner + 状态文字 + 计时，>8s 显示已耗时安抚。
 
 ## 7. 动效（克制 · 回应操作 · 一处大胆）
 
@@ -180,6 +180,26 @@ WPF 用 Storyboard + easing（CubicEase/QuadraticEase）实现，时序对齐 mo
 6. **状态点**：修复入口 live 点观察中轻脉冲（~2.4s）。
 
 **边界**：全部跟随系统「显示动画」开关（`SystemParameters.ClientAreaAnimation`）+ 应用设置；关闭时一切静止、无内容隐藏。无滚动淡入、无视差、无 scroll-jacking；循环动效可随开关停止。画刷 Freeze，避免布局抖动。
+
+### 7.1 响应时间分级反馈（反馈强度匹配实际耗时）
+
+动效不是装饰，而是按操作真实耗时给到「刚好够」的反馈，绝不让操作静默或显得卡死：
+
+| 操作 | 典型耗时 | 分级 | 反馈 |
+|---|---|---|---|
+| 还是没好 / 勾选 / 导航切换 / stepper 高亮 | <0.1s | 即时 | 直接出结果，**不加加载动画**；导航内容立即出现（淡入只是叠加，不延迟内容） |
+| 按钮 press / 短读取 | 0.1–1s | 良好 | 简单点击反馈即可，**不用进度条** |
+| 体检本机 / 开·关代理 | 1–3s | 警戒 | 点击**立即** busy 置灰 + spinner + 阶段文字（<0.3s）；`RepairProgress` 流式进度兜底 |
+| 执行修复 / 回滚（含自检 A~E，≤3 轮） | 3–10s+ | 难受 | **determinate 进度条 + 步骤清单 + 计时 + 实时日志**（现有侧通道已具备） |
+| 交给 AI 交接包 | 通常 <3s，大日志 5–8s+ | 复杂导出 | 立即 busy + spinner + 状态文字 + 计时；**>8s 显示已耗时 +「日志较大仍在打包」安抚**，不只干转圈 |
+
+### 7.2 场景临界点与防混淆
+
+- **按钮微交互 <0.3s 必须有 press 反馈**，否则用户怀疑没点中→重复点击。所有按钮 hover/press 即时（<0.1s）。
+- **首屏**：打开即修复，框架与仪器立即渲染（<0.1s）；未测得显示「—」而非空等；**不阻塞首屏等探测**。
+- **防重复 vs 二次确认**：`IsBusy` 期间执行类按钮置灰防重复；但二次确认 pending 态**不置灰**、文案变「再次点击确认执行（N 项）」/「再次点击确认回滚」——这是有意的第二次点击，保留既有安全语义，不可被防重复逻辑误伤。
+- **仪器 draw-in 是「已测得数据的揭示」，不是加载延迟**：数据就绪即显示，动画只是 reveal，reduced-motion 立即显示。呼吸是环境态，**不是「仍在加载」信号**——加载一律用 spinner/进度明确表达，二者不混淆。
+- **交接包真·分步进度**需 `HandoffExporter` 增加 `IProgress` 钩子（属 `NetScope.Storage`，范围外，见 §12）；本期 UI 层以 busy + spinner + 计时 + 状态文字覆盖，大日志 >8s 显示已耗时安抚。
 
 ## 8. 二级页面继承规则
 
@@ -219,6 +239,7 @@ WPF 用 Storyboard + easing（CubicEase/QuadraticEase）实现，时序对齐 mo
 - 冒烟 `--smoke-test <file.json>` → 真实只读采集 + 导出。
 - 实机（用户常驻环境）：修复全流程（体检→执行→自检）、二次确认、回滚、动画开关、reduced-motion、非管理员跳过。
 - 字体：验证 Plex Sans/Mono 在 WPF 的字重解析与 CJK 回退基线。
+- 反馈时序：按钮 press <0.3s；长操作有进度/步骤；无 >1s 静默；reduced-motion 静止且无内容隐藏；二次确认 pending 态不被防重复置灰误伤。
 
 ## 12. 风险与开放问题
 
@@ -229,6 +250,7 @@ WPF 用 Storyboard + easing（CubicEase/QuadraticEase）实现，时序对齐 mo
 - **动效性能**：连续呼吸/扫描受开关闸门；Freeze 画刷。
 - **Desktop 测试断言**：旧色值/页数需更新。
 - **首页移除**：确保会话控制迁移、无功能丢失。
+- **交接包分步进度**：`HandoffExporter.ExportAsync` 无 `IProgress` 钩子（属 Storage，范围外）；本期 UI 层以 busy + spinner + 计时 + 状态覆盖，真·分步进度留待 exporter 增强。
 
 ## 13. 不在范围
 
