@@ -48,11 +48,38 @@ public partial class NetworkPathInstrument : UserControl
         InternetLabel.Foreground = StateTextBrush(model.Internet.State);
         EgressNote.Visibility = model.Egress.State == PathStationState.Unknown ? Visibility.Visible : Visibility.Collapsed;
         InternetNote.Visibility = model.Internet.State == PathStationState.Unknown ? Visibility.Visible : Visibility.Collapsed;
-        // 故障平线只在代理故障时显示；代理未测得时健康脉冲隐藏，未知不冒充健康
-        FaultPath.Visibility = model.Proxy.State == PathStationState.Fault ? Visibility.Visible : Visibility.Collapsed;
-        HealthyPath.Visibility = model.Proxy.State == PathStationState.Unknown ? Visibility.Collapsed : Visibility.Visible;
+        var (healthyData, faultData) = BuildTraceGeometry(model);
+        HealthyPath.Data = healthyData is null ? null : Geometry.Parse(healthyData);
+        HealthyPath.Visibility = healthyData is null ? Visibility.Collapsed : Visibility.Visible;
+        FaultPath.Data = faultData is null ? null : Geometry.Parse(faultData);
+        FaultPath.Visibility = faultData is null ? Visibility.Collapsed : Visibility.Visible;
         UpdateMotion();
         if (PortReadout.Text != previousPort) SettleReadout();
+    }
+
+    // First-hop signature zigzag; must stay identical to the HealthyPath Data default in the XAML.
+    private const string FirstHopZigzag = "M20 64 L70 64 L82 64 L90 30 L100 98 L110 64 L150 64 L162 64 L170 34 L180 94 L190 64 L232 64";
+
+    // Per-segment trace composition (spec §6.2): healthy segments extend the teal trace, the first
+    // fault station starts the red flat line, unknown segments keep the gray dotted baseline.
+    internal static (string? HealthyData, string? FaultData) BuildTraceGeometry(NetworkPathModel model)
+    {
+        var seg2Healthy = model.Proxy.State == PathStationState.Ok && model.Egress.State == PathStationState.Ok;
+        var seg3Healthy = seg2Healthy && model.Internet.State == PathStationState.Ok;
+
+        string? healthy = null;
+        if (model.Proxy.State != PathStationState.Unknown)
+        {
+            healthy = FirstHopZigzag;
+            if (seg2Healthy) healthy += " L500 64";
+            if (seg3Healthy) healthy += " L740 64";
+        }
+
+        string? fault = null;
+        if (model.Proxy.State == PathStationState.Fault) fault = "M232 64 L740 64";
+        else if (model.Internet.State == PathStationState.Fault && seg2Healthy) fault = "M500 64 L740 64";
+
+        return (healthy, fault);
     }
 
     // Reveal-not-loading: data is already shown statically; motion only plays when gated on AND presented.
