@@ -15,8 +15,7 @@ public static class ScreenRenderer
 {
     private static readonly string[] Slugs =
     {
-        "home", "timeline", "diagnoses", "case-replay", "repair",
-        "clients", "export", "settings", "help",
+        "repair", "diagnoses", "timeline", "clients", "export", "case-replay", "settings", "help",
     };
 
     public static async Task RenderAsync(MainViewModel viewModel, string directory, int width = 1440, int height = 900)

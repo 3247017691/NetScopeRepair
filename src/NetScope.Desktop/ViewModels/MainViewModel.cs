@@ -5,7 +5,9 @@ using NetScope.Storage;
 
 namespace NetScope.Desktop.ViewModels;
 
-public sealed record NavSection(string Title, string Caption, ViewModelBase ViewModel, string IconGeometry = "");
+public enum NavGroup { Primary, Secondary, Footer }
+
+public sealed record NavSection(string Title, string Caption, ViewModelBase ViewModel, string IconGeometry = "", NavGroup Group = NavGroup.Secondary);
 
 /// <summary>
 /// Composition root for the shell. It owns the read-only observation session, routes session
@@ -51,24 +53,25 @@ public sealed class MainViewModel : ViewModelBase
 
         Sections = new[]
         {
-            new NavSection("首页", "当前状态与观察会话", Home,
-                "M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z"),
-            new NavSection("时间线", "事件、缺口与损坏行", Timeline,
-                "M3 12h4l3 8 4-16 3 8h4"),
+            new NavSection("修复", "本机真实体检 · TUN/残留/代理 · 可回滚", QuickRepair,
+                "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+                NavGroup.Primary),
             new NavSection("诊断与证据", "结论、证据与反证", Diagnoses,
                 "M12 2l8 4v6c0 5.25-3.5 10-8 11-4.5-1-8-5.75-8-11V6l8-4zm-2 10l2 2 4-4"),
-            new NavSection("案例回放", "固定规则重放本地故障包", CaseReplay,
-                "M4 4h16v12H4zM8 20h8M12 16v4M9 9l3-3 3 3M12 6v5"),
-            new NavSection("修复", "本机真实体检 · TUN/残留/代理 · 可回滚", QuickRepair,
-                "M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"),
+            new NavSection("时间线", "事件、缺口与损坏行", Timeline,
+                "M3 12h4l3 8 4-16 3 8h4"),
             new NavSection("多客户端", "只读状态与依赖解释", Clients,
                 "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"),
             new NavSection("导出", "脱敏预览与本地 ZIP", Export,
                 "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"),
+            new NavSection("案例回放", "固定规则重放本地故障包", CaseReplay,
+                "M4 4h16v12H4zM8 20h8M12 16v4M9 9l3-3 3 3M12 6v5"),
             new NavSection("设置", "观察与探测目标", Settings,
-                "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"),
+                "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+                NavGroup.Footer),
             new NavSection("帮助", "离线说明与边界", Help,
-                "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm-1-7h2v2h-2zm1-9a3.5 3.5 0 0 0-3.5 3.5h2a1.5 1.5 0 1 1 3 0c0 1-1.5 1.5-2.2 2.2-.5.5-.8 1.1-.8 1.8h2c0-.5.2-.8.5-1.1.7-.7 2-1.4 2-2.9A3.5 3.5 0 0 0 12 6z"),
+                "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm-1-7h2v2h-2zm1-9a3.5 3.5 0 0 0-3.5 3.5h2a1.5 1.5 0 1 1 3 0c0 1-1.5 1.5-2.2 2.2-.5.5-.8 1.1-.8 1.8h2c0-.5.2-.8.5-1.1.7-.7 2-1.4 2-2.9A3.5 3.5 0 0 0 12 6z",
+                NavGroup.Footer),
         };
         _selectedSection = Sections[0];
         LoadDemoCommand = new AsyncRelayCommand(() => LoadDemoAsync(), null, ex => _ = HandleErrorAsync(ex));
@@ -114,6 +117,12 @@ public sealed class MainViewModel : ViewModelBase
 
     public IReadOnlyList<NavSection> Sections { get; }
 
+    public NavSection PrimarySection => Sections.First(s => s.Group == NavGroup.Primary);
+
+    public IEnumerable<NavSection> SecondarySections => Sections.Where(s => s.Group == NavGroup.Secondary);
+
+    public IEnumerable<NavSection> FooterSections => Sections.Where(s => s.Group == NavGroup.Footer);
+
     public System.Windows.Input.ICommand LoadDemoCommand { get; }
 
     public System.Windows.Input.ICommand RefreshTimelineCommand { get; }
@@ -126,7 +135,22 @@ public sealed class MainViewModel : ViewModelBase
             if (value is null || !Set(ref _selectedSection, value)) return;
             Raise(nameof(PageTitle));
             Raise(nameof(PageCaption));
+            Raise(nameof(SecondarySelected));
+            Raise(nameof(FooterSelected));
         }
+    }
+
+    // Each rail list only selects within its own tier; a page in another tier clears this list.
+    public NavSection? SecondarySelected
+    {
+        get => _selectedSection.Group == NavGroup.Secondary ? _selectedSection : null;
+        set { if (value is not null) SelectedSection = value; }
+    }
+
+    public NavSection? FooterSelected
+    {
+        get => _selectedSection.Group == NavGroup.Footer ? _selectedSection : null;
+        set { if (value is not null) SelectedSection = value; }
     }
 
     public string PageTitle => SelectedSection.Title;
@@ -221,7 +245,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         try
         {
-            SelectedSection = Sections.First(section => ReferenceEquals(section.ViewModel, QuickRepair));
+            SelectedSection = PrimarySection;
             await QuickRepair.PreselectForDiagnosisAsync(ruleId);
         }
         catch (Exception exception)

@@ -6,6 +6,61 @@
              mc:Ignorable="d"
              d:DesignHeight="900" d:DesignWidth="1440"
              Background="{StaticResource Canvas}">
+    <UserControl.Resources>
+        <!-- Quiet rail item shared by the secondary and footer lists. -->
+        <Style x:Key="RailNavItem" TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="10,2" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid>
+                            <Border x:Name="ActiveBar" Width="3" HorizontalAlignment="Left" CornerRadius="2"
+                                    Background="{StaticResource Accent}" Visibility="Collapsed" Margin="0,5" />
+                            <Border x:Name="Chrome" Background="Transparent" CornerRadius="6" Margin="5,0,0,0"
+                                    Padding="{TemplateBinding Padding}" BorderThickness="1" BorderBrush="Transparent">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Path x:Name="NavIcon" Grid.Column="0" Data="{Binding IconGeometry}"
+                                          Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6"
+                                          StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Fill="Transparent" Width="15" Height="15" Stretch="Uniform"
+                                          HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,1,0,0" />
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock x:Name="NavTitle" Text="{Binding Title}" FontSize="13" FontWeight="Normal"
+                                                   Foreground="{TemplateBinding Foreground}" />
+                                        <TextBlock x:Name="NavCaption" Text="{Binding Caption}" FontSize="10.5" Margin="0,1.5,0,0"
+                                                   Foreground="{StaticResource SubtleText}" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource HoverSurface}" />
+                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ActiveBar" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource HoverSurface}" />
+                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                <Setter TargetName="NavTitle" Property="FontWeight" Value="SemiBold" />
+                                <Setter TargetName="NavTitle" Property="Foreground" Value="{StaticResource Ink}" />
+                                <Setter TargetName="NavCaption" Property="Foreground" Value="{StaticResource Muted}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="248" />
@@ -34,6 +89,60 @@
                     <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,16,0,0" />
                 </StackPanel>
 
+                <!-- Primary entry: repair -->
+                <Button DockPanel.Dock="Top" Margin="12,2,12,10"
+                        Command="{Binding Home.OpenRepairCommand}"
+                        Cursor="Hand" FocusVisualStyle="{StaticResource FocusVisual}"
+                        AutomationProperties.Name="修复">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <Border x:Name="ActiveBar" Width="3" HorizontalAlignment="Left" CornerRadius="2"
+                                        Background="{StaticResource Accent}" Visibility="Collapsed" Margin="0,6" />
+                                <Border x:Name="Chrome" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+                                        BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="5,0,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="22" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Path Grid.Column="0" Data="{Binding PrimarySection.IconGeometry}"
+                                              Stroke="{StaticResource Accent}" StrokeThickness="1.7"
+                                              StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              Fill="Transparent" Width="18" Height="18" Stretch="Uniform"
+                                              HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding PrimarySection.Title}" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Ink}" />
+                                            <TextBlock Text="{Binding PrimarySection.Caption}" FontSize="10.5" Margin="0,2,0,0"
+                                                       Foreground="{StaticResource SubtleText}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <Ellipse Grid.Column="2" Width="7" Height="7" Fill="{Binding StateTone}"
+                                                 VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Chrome" Property="Background" Value="{StaticResource HoverSurface}" />
+                                    <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource HoverBorder}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding SelectedSection.Group}" Value="Primary">
+                                    <Setter TargetName="ActiveBar" Property="Visibility" Value="Visible" />
+                                    <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource AccentBorder}" />
+                                </DataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <!-- Secondary group header -->
+                <StackPanel DockPanel.Dock="Top" Margin="20,2,18,4">
+                    <Border Height="1" Background="{StaticResource LineSubtle}" Margin="0,0,0,10" />
+                    <TextBlock Text="观察与工具" FontSize="11" FontWeight="Medium" Foreground="{StaticResource SubtleText}" />
+                </StackPanel>
+
                 <!-- Safety note -->
                 <Border DockPanel.Dock="Bottom" Margin="12,10,12,16" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6" Padding="12,9">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -44,66 +153,19 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Navigation -->
-                <ListBox ItemsSource="{Binding Sections}"
-                         SelectedItem="{Binding SelectedSection, Mode=TwoWay}"
+                <!-- Footer navigation -->
+                <ListBox DockPanel.Dock="Bottom" ItemsSource="{Binding FooterSections}"
+                         SelectedItem="{Binding FooterSelected, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource RailNavItem}"
                          Background="Transparent" BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Margin" Value="10,2" />
-                            <Setter Property="Padding" Value="10,8" />
-                            <Setter Property="Cursor" Value="Hand" />
-                            <Setter Property="Foreground" Value="{StaticResource Muted}" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListBoxItem">
-                                        <Grid>
-                                            <Border x:Name="ActiveBar" Width="3" HorizontalAlignment="Left" CornerRadius="2"
-                                                    Background="{StaticResource Accent}" Visibility="Collapsed" Margin="0,5" />
-                                            <Border x:Name="Chrome" Background="Transparent" CornerRadius="6" Margin="5,0,0,0"
-                                                    Padding="{TemplateBinding Padding}" BorderThickness="1" BorderBrush="Transparent">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="20" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Path x:Name="NavIcon" Grid.Column="0" Data="{Binding IconGeometry}"
-                                                          Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6"
-                                                          StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                          Fill="Transparent" Width="15" Height="15" Stretch="Uniform"
-                                                          HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,1,0,0" />
-                                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                                        <TextBlock x:Name="NavTitle" Text="{Binding Title}" FontSize="13" FontWeight="Normal"
-                                                                   Foreground="{TemplateBinding Foreground}" />
-                                                        <TextBlock x:Name="NavCaption" Text="{Binding Caption}" FontSize="10.5" Margin="0,1.5,0,0"
-                                                                   Foreground="{StaticResource SubtleText}" TextTrimming="CharacterEllipsis" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                        </Grid>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource HoverSurface}" />
-                                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
-                                            </Trigger>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="ActiveBar" Property="Visibility" Value="Visible" />
-                                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource HoverSurface}" />
-                                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                                                <Setter TargetName="NavTitle" Property="FontWeight" Value="SemiBold" />
-                                                <Setter TargetName="NavTitle" Property="Foreground" Value="{StaticResource Ink}" />
-                                                <Setter TargetName="NavCaption" Property="Foreground" Value="{StaticResource Muted}" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ListBox.ItemContainerStyle>
-                </ListBox>
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+
+                <!-- Secondary navigation -->
+                <ListBox ItemsSource="{Binding SecondarySections}"
+                         SelectedItem="{Binding SecondarySelected, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource RailNavItem}"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
             </DockPanel>
         </Border>
 
@@ -133,7 +195,12 @@
                         <Button Content="开始观察" Command="{Binding Home.StartCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
                         <Button Content="暂停" Command="{Binding Home.PauseCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
                         <Button Content="立即诊断" Command="{Binding Home.DiagnoseCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
-                        <Button Content="载入合成演示" Command="{Binding LoadDemoCommand}" Style="{StaticResource GhostButton}" />
+                        <Menu Background="Transparent" VerticalAlignment="Center">
+                            <MenuItem Header="更多" Foreground="{StaticResource Muted}" FontSize="12.5" FontWeight="Medium"
+                                      FontFamily="{StaticResource UiFont}" Padding="11,6" Cursor="Hand">
+                                <MenuItem Header="载入合成演示" Command="{Binding LoadDemoCommand}" />
+                            </MenuItem>
+                        </Menu>
                     </StackPanel>
                 </DockPanel>
             </Border>
