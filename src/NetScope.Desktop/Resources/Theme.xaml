@@ -1,42 +1,42 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Palette: Linear light spec, oklch -> sRGB (gamut-mapped). Cool-gray surfaces at hue 250. -->
-    <Color x:Key="CanvasColor">#F7F9FC</Color>      <!-- bg-app oklch(0.982 0.004 250) -->
-    <Color x:Key="RailColor">#F7F9FC</Color>        <!-- bg-app: sidebar shares the canvas -->
-    <Color x:Key="RailMutedColor">#474E55</Color>   <!-- text-secondary -->
-    <Color x:Key="SurfaceColor">#FFFFFF</Color>     <!-- bg-surface oklch(1 0 0) -->
-    <Color x:Key="SubtleSurfaceColor">#F0F3F6</Color><!-- bg-subtle oklch(0.962 0.005 250) -->
-    <Color x:Key="HoverSurfaceColor">#EAEDF1</Color><!-- bg-hover oklch(0.945 0.006 250) -->
-    <Color x:Key="LineColor">#E0E3E7</Color>        <!-- border-subtle oklch(0.915 0.006 250) -->
-    <Color x:Key="LineSubtleColor">#E7EAED</Color>  <!-- lighter inner divider oklch(0.935 0.005 250) -->
-    <Color x:Key="InkColor">#12181E</Color>         <!-- text-primary oklch(0.205 0.015 250) -->
-    <Color x:Key="MutedColor">#474E55</Color>       <!-- text-secondary oklch(0.420 0.014 250) -->
-    <Color x:Key="SubtleTextColor">#767B80</Color>  <!-- text-muted oklch(0.580 0.010 250) -->
+    <!-- Palette: signal-instrument light spec. Teal signal accent on white, cool-gray neutrals. -->
+    <Color x:Key="CanvasColor">#FFFFFF</Color>
+    <Color x:Key="RailColor">#F7F8FA</Color>
+    <Color x:Key="RailMutedColor">#474E55</Color>
+    <Color x:Key="SurfaceColor">#FFFFFF</Color>
+    <Color x:Key="SubtleSurfaceColor">#F8F9FB</Color>
+    <Color x:Key="HoverSurfaceColor">#F0F2F5</Color>
+    <Color x:Key="LineColor">#E8EAED</Color>
+    <Color x:Key="LineSubtleColor">#EFF1F4</Color>
+    <Color x:Key="InkColor">#1F2329</Color>
+    <Color x:Key="MutedColor">#6B7280</Color>
+    <Color x:Key="SubtleTextColor">#9AA0A8</Color>
 
-    <!-- Accent: Linear brand indigo #5e6ad2; interactive #7170ff; hover #828fff (matches UiText). -->
-    <Color x:Key="AccentColor">#5E6AD2</Color>
-    <Color x:Key="AccentInteractiveColor">#7170FF</Color>
-    <Color x:Key="AccentLightColor">#ECEFFF</Color>  <!-- oklch(0.955 0.030 275) -->
-    <Color x:Key="AccentBorderColor">#CCD5FF</Color> <!-- oklch(0.880 0.060 275) -->
-    <Color x:Key="AccentDeepColor">#3F46AC</Color>   <!-- oklch(0.450 0.160 275) -->
+    <!-- Accent: signal teal; interactive = hover, deep = pressed (matches UiText). -->
+    <Color x:Key="AccentColor">#0E7C66</Color>
+    <Color x:Key="AccentInteractiveColor">#0C6B58</Color>
+    <Color x:Key="AccentLightColor">#E6F2EE</Color>
+    <Color x:Key="AccentBorderColor">#BFE0D6</Color>
+    <Color x:Key="AccentDeepColor">#0A5A4A</Color>
 
-    <!-- Semantic status: unified lightness, low-chroma badges (oklch hue 150 / 75 / 25). -->
-    <Color x:Key="OkColor">#006B2E</Color>          <!-- oklch(0.460 0.130 150) -->
-    <Color x:Key="OkBgColor">#E0F7E4</Color>        <!-- oklch(0.955 0.035 150) -->
-    <Color x:Key="OkBorderColor">#B7E5BF</Color>
-    <Color x:Key="WarnColor">#865900</Color>        <!-- oklch(0.500 0.145 75) -->
-    <Color x:Key="WarnBgColor">#FFEDD6</Color>      <!-- oklch(0.955 0.045 75) -->
-    <Color x:Key="WarnBorderColor">#F7D19C</Color>
-    <Color x:Key="BadColor">#A5292B</Color>         <!-- oklch(0.480 0.160 25) -->
-    <Color x:Key="BadBgColor">#FFEBE9</Color>       <!-- oklch(0.955 0.040 25) -->
-    <Color x:Key="BadBorderColor">#FFC8C3</Color>
-    <Color x:Key="GapColor">#474E55</Color>         <!-- neutral = text-secondary -->
-    <Color x:Key="GapBgColor">#F0F3F6</Color>       <!-- neutral = bg-subtle -->
-    <Color x:Key="GapBorderColor">#E0E3E7</Color>   <!-- neutral = border-subtle -->
+    <!-- Semantic status inks with their soft badge backgrounds and borders. -->
+    <Color x:Key="OkColor">#177A4C</Color>
+    <Color x:Key="OkBgColor">#E7F6EE</Color>
+    <Color x:Key="OkBorderColor">#BFE6D2</Color>
+    <Color x:Key="WarnColor">#B45309</Color>
+    <Color x:Key="WarnBgColor">#FBF0E2</Color>
+    <Color x:Key="WarnBorderColor">#F0D3A8</Color>
+    <Color x:Key="BadColor">#C0392B</Color>
+    <Color x:Key="BadBgColor">#FBEAEA</Color>
+    <Color x:Key="BadBorderColor">#F2C4C4</Color>
+    <Color x:Key="GapColor">#6B7280</Color>         <!-- neutral = Muted -->
+    <Color x:Key="GapBgColor">#F8F9FB</Color>       <!-- neutral = SubtleSurface -->
+    <Color x:Key="GapBorderColor">#E8EAED</Color>   <!-- neutral = Line -->
 
-    <!-- Interactive neutrals (hover borders / scrollbar thumb), hue 250. -->
-    <Color x:Key="HoverBorderColor">#CACED3</Color>      <!-- oklch(0.850 0.008 250) -->
-    <Color x:Key="ScrollThumbHoverColor">#999FA6</Color> <!-- oklch(0.700 0.012 250) -->
+    <!-- Interactive neutrals (hover borders / scrollbar thumb). -->
+    <Color x:Key="HoverBorderColor">#D3D8DE</Color>
+    <Color x:Key="ScrollThumbHoverColor">#B6BCC4</Color>
 
 
     <SolidColorBrush x:Key="Canvas" Color="{StaticResource CanvasColor}" />
@@ -69,6 +69,10 @@
     <SolidColorBrush x:Key="Gap" Color="{StaticResource GapColor}" />
     <SolidColorBrush x:Key="GapBg" Color="{StaticResource GapBgColor}" />
     <SolidColorBrush x:Key="GapBorder" Color="{StaticResource GapBorderColor}" />
+
+    <Color x:Key="UnknownColor">#C4C9D0</Color>
+    <SolidColorBrush x:Key="Unknown" Color="{StaticResource UnknownColor}" />
+    <SolidColorBrush x:Key="Recess" Color="{StaticResource SubtleSurfaceColor}" />
 
     <SolidColorBrush x:Key="HoverBorder" Color="{StaticResource HoverBorderColor}" />
     <SolidColorBrush x:Key="ScrollThumbHover" Color="{StaticResource ScrollThumbHoverColor}" />
@@ -175,7 +179,7 @@
 
     <!-- Buttons -->
     <Style x:Key="PrimaryButton" TargetType="Button">
-        <Setter Property="Background" Value="#151B21" /> <!-- btn-primary oklch(0.220 0.015 250) -->
+        <Setter Property="Background" Value="{StaticResource Accent}" />
         <Setter Property="Foreground" Value="#FFFFFF" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="13,6" />
@@ -202,10 +206,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Chrome" Property="Background" Value="#282F35" /> <!-- oklch(0.300 0.015 250) -->
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource AccentInteractive}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Chrome" Property="Background" Value="#373E45" />
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource AccentDeep}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Chrome" Property="Opacity" Value="0.4" />
