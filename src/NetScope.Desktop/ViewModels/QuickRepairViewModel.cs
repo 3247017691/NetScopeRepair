@@ -81,9 +81,19 @@ public sealed class RepairItemRow : ViewModelBase
     public string ProblemText => Finding?.Title ?? Action.Title;
     public string CodeRef => Finding?.Code ?? "";
     public string FixText => Action.Title;
-    public string BeforeAfterText =>
-        Action.Current is null && Action.Desired is null ? ""
-        : (Action.Current ?? "未设置") + " → " + (Action.Desired ?? "清除");
+    public string BeforeAfterText
+    {
+        get
+        {
+            // Display-only: the planner emits "" for cache refresh; collapse empty pairs to "" so no
+            // bare arrow renders. IsNullOrEmpty (not Whitespace) — a whitespace value is real data.
+            // Action.Current/Desired keep their raw values; executor/journal semantics are untouched.
+            var current = string.IsNullOrEmpty(Action.Current) ? null : Action.Current;
+            var desired = string.IsNullOrEmpty(Action.Desired) ? null : Action.Desired;
+            return current is null && desired is null ? ""
+                : (current ?? "未设置") + " → " + (desired ?? "清除");
+        }
+    }
     public string RiskBadge => Action.Badge;
     public bool IsSelected
     {
@@ -143,8 +153,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
         _handoffTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _handoffTimer.Tick += (_, _) =>
         {
-            var elapsed = (int)_handoffStopwatch.Elapsed.TotalSeconds;
-            if (IsBusy && elapsed > 8) StatusMessage = "日志较大，仍在打包…已耗时 " + elapsed + "s";
+            if (HandoffProgressText(IsBusy, _handoffStopwatch.Elapsed) is { } msg) StatusMessage = msg;
         };
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, null, OnError);
         ApplyCommand = new AsyncRelayCommand(ApplyAsync, null, OnError);
@@ -628,6 +637,14 @@ public sealed class QuickRepairViewModel : ViewModelBase
     }
 
     private static string FormatElapsed(TimeSpan elapsed) => elapsed.TotalSeconds.ToString("0.0") + "s";
+
+    // Reassurance for a large handoff package: only while busy and past 8s. The guard compares double
+    // seconds so it fires just after 8.0s; the displayed count stays truncated to whole seconds.
+    internal static string? HandoffProgressText(bool isBusy, TimeSpan elapsed)
+    {
+        if (!isBusy || elapsed.TotalSeconds <= 8) return null;
+        return "日志较大，仍在打包…已耗时 " + (int)elapsed.TotalSeconds + "s";
+    }
 
     private void OnError(Exception exception)
     {

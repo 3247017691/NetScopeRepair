@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Windows.Input;
 using NetScope.Desktop.Services;
 using NetScope.Domain;
 using NetScope.Storage;
@@ -19,6 +20,18 @@ public sealed class TimelineViewModel : ViewModelBase
     private string _detailJson = "选择一行可查看该事件的完整 payload。";
     private TimelineRow? _selectedRow;
     private string _changeSummaryText = "还没有可对比的相邻观察。";
+
+    // The refresh command lives here (the button's DataContext) so it resolves without a ShellView
+    // ancestor — the off-screen render harness has none. The path provider is demo-aware at click time.
+    public TimelineViewModel(Func<string>? sessionPath = null)
+    {
+        RefreshCommand = new AsyncRelayCommand(
+            () => LoadAsync(sessionPath?.Invoke() ?? ""),
+            null,
+            ex => StatusMessage = "读取时间线失败：" + ex.GetType().Name);
+    }
+
+    public ICommand RefreshCommand { get; }
 
     public ObservableCollection<TimelineRow> Rows { get; } = new();
 

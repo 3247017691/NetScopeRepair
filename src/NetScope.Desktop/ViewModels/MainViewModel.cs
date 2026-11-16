@@ -43,7 +43,7 @@ public sealed class MainViewModel : ViewModelBase
             dispatcher: _dispatcher);
         Home = new HomeViewModel(services.Session, () => _settings, DiagnoseAsync, HandleErrorAsync, CollectAsync,
             openRepair: () => OpenRepairAsync(null));
-        Timeline = new TimelineViewModel();
+        Timeline = new TimelineViewModel(() => DisplaySessionPath);
         Diagnoses = new DiagnosesViewModel(ruleId => OpenRepairAsync(ruleId));
         CaseReplay = new CaseReplayViewModel();
         Clients = new ClientsViewModel(services.Clients, services.Explanations);
@@ -75,8 +75,6 @@ public sealed class MainViewModel : ViewModelBase
                 NavGroup.Footer),
         };
         _selectedSection = Sections[0];
-        RefreshTimelineCommand = new AsyncRelayCommand(
-            async () => await Timeline.LoadAsync(DisplaySessionPath), null, ex => _ = HandleErrorAsync(ex));
 
         services.Session.StateChanged += (_, _) => _dispatcher.Post(UpdateSessionState);
         services.Session.CycleCompleted += (_, cycle) => _dispatcher.Post(() => OnCycle(cycle));
@@ -124,8 +122,6 @@ public sealed class MainViewModel : ViewModelBase
     public IEnumerable<NavSection> FooterSections => Sections.Where(s => s.Group == NavGroup.Footer);
 
     public System.Windows.Input.ICommand LoadDemoCommand { get; }
-
-    public System.Windows.Input.ICommand RefreshTimelineCommand { get; }
 
     public NavSection SelectedSection
     {

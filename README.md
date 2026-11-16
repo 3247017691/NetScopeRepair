@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet" alt=".NET 10" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows" alt="Windows" />
   <a href="https://github.com/3247017691/NetScopeRepair/releases"><img src="https://img.shields.io/github/v/release/3247017691/NetScopeRepair?label=release" alt="Release" /></a>
-  <img src="https://img.shields.io/badge/tests-929%20passing-brightgreen.svg" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-985%20passing-brightgreen.svg" alt="Tests" />
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@ NetScope Repair 把这些变成 **可读的诊断结论 → 可勾选的修复�
 </p>
 <p align="center"><sub>诊断与证据：每条结论都引用实测 <code>evidence_id</code>，并列出反证与缺失证据，不伪造结论。</sub></p>
 
-> 📌 本文所有界面截图均为**合成演示数据（mock）**，不代表任何真实本机状态，也不会发起网络请求。
+> 📌 本文所有界面截图均为**合成演示数据（mock）**，不代表任何真实本机状态，也不会发起网络请求。界面截图为信号仪改版前版本，截图刷新另起任务。
 
 ## ✨ 核心能力
 
@@ -61,6 +61,8 @@ NetScope Repair 把这些变成 **可读的诊断结论 → 可勾选的修复�
   <img src="docs/images/repair.png" alt="修复页" width="100%" />
 </p>
 
+修复页按 体检 → 看清问题 → 执行 → 自检 四阶段引导，问题与修复动作配对展示，主按钮随阶段变化。
+
 只执行你**勾选并二次确认**的动作，每次改动都记入 journal：
 
 - **死代理清理**：清掉 / 对齐指向死端口的环境变量、系统代理、WinHTTP
@@ -72,7 +74,7 @@ NetScope Repair 把这些变成 **可读的诊断结论 → 可勾选的修复�
 
 ### 🎨 克制界面 + 实时流式反馈
 
-Linear 风格的浅色控制台：Inter 字体、单一靛蓝强调色、极细分割线，靠亮度阶梯分层而非阴影堆砌。修复页**点击即有反馈**，不再「点了没动静」：
+白底「信号仪」控制台：IBM Plex Sans/Mono 字体、单一信号青绿（#0E7C66）、极细分割线，靠亮度阶梯分层而非阴影堆砌。打开即修复页，网络路径仪器实时画出 本机 → 代理 → 出口 → 互联网 的实测信号；**点击即有反馈**，不再「点了没动静」：
 
 - **结构化步骤清单**：每个动作 待执行 → 执行中 → 成功 / 失败 / 跳过，附 before→after 与耗时
 - **可展开实时日志**：等宽字体、时间戳、按类型着色、自动滚动到底
@@ -114,7 +116,7 @@ Linear 风格的浅色控制台：Inter 字体、单一靛蓝强调色、极细�
 
 ```bash
 dotnet run --project src/NetScope.Desktop      # 桌面
-dotnet test NetScopeRepair.slnx                # 8 个测试工程，929 项测试
+dotnet test NetScopeRepair.slnx                # 8 个测试工程，985 项测试
 ```
 
 ### CLI

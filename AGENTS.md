@@ -6,12 +6,15 @@
 Windows 代理网络的**诊断与受控修复**工具。始终作为 Nice加速、Apex、mihomo/Clash 等客户端的
 伴随工具存在：不承载流量、不内置代理内核或 TUN 驱动、不替代现有客户端。
 
-## 当前状态（2026-11-15 更新）
+## 当前状态（2026-11-16 更新）
 
 **统一修复引擎已落地：诊断 → 体检 → 受控修复 → 修后自检 → 失败进日志 → 一键交给 AI。**
 旧的 TUN 三字段深度修复链路（NetScope.Repair / NetScope.Broker / 8 层 fail-closed 闸门）已整体删除，
 其能力以真实可执行、可回滚的形式并入统一修复引擎；2026-11-06 G3 独立复核的历史结论保留存档（见下方链接）。
 桌面脚本不再被依赖，软件零脚本依赖。
+
+桌面已完成「信号仪」重构：修复是一等公民（打开即修复），双层左栏 + 网络路径仪器主角，
+IBM Plex Sans/Mono 内嵌字体，白底信号青绿（#0E7C66）调色板；动效克制并跟随系统「显示动画」开关。
 
 能力清单（与代码一致）：
 
@@ -33,7 +36,7 @@ Windows 代理网络的**诊断与受控修复**工具。始终作为 Nice加速
 
 ```text
 dotnet build NetScopeRepair.slnx  ->  0 警告 0 错误
-8 个测试工程                      ->  919 通过 / 0 失败 / 0 跳过
+8 个测试工程                      ->  985 通过 / 0 失败 / 0 跳过
 dotnet publish -c Release         ->  artifacts/M4-UnifiedRepair/（可直接双击）
 ```
 
@@ -41,7 +44,7 @@ dotnet publish -c Release         ->  artifacts/M4-UnifiedRepair/（可直接双
 TUN 三字段修复、修后自检与 AI 交接闭环的实机验收正在与用户配合推进（需管理员与客户端配合）。
 
 真实采集（`WindowsSnapshotCollector`）、诊断规则、案例回放、脱敏导出一直读的是本机真实数据；
-只有 CLI `demo` 与「载入合成演示」按钮是明确标注为 mock 的合成数据。
+只有 CLI `demo` 与设置页「载入合成演示」入口是明确标注为 mock 的合成数据。
 
 ### 历史报告
 
@@ -88,11 +91,15 @@ dotnet run --project src/NetScope.Desktop
 ```
 
 默认自动开始**本机只读快照**（不发起外部探测）。关闭窗口隐藏到托盘继续观察，显式「退出」才停止采集。
-页面共 9 个：首页、时间线、诊断与证据、案例回放、**修复**、多客户端、导出、设置、帮助。
+页面共 8 个，打开即**修复**：左栏顶部「修复」主入口（带实时状态点），安静的「观察与工具」二级组
+（诊断与证据、时间线、多客户端、导出、案例回放），设置/帮助沉底。首页降级为会话管线
+（仍驱动顶栏「开始观察 / 暂停 / 立即诊断」与状态路由），不再是导航页面。
 
-**「修复」页是唯一的真实执行入口**：点「体检本机（只读）」读取真实状态 → 勾选动作 → 点「执行所选动作」→ 再点一次确认才写入。
-同页还有「开代理」「关代理 · 纯直连」「回滚全部改动」「交给 AI」「还是没好」与「高风险模式」。
-诊断页的「去修复」与首页入口会跳到本页并按诊断规则预选动作（如 DX-001 预选死代理清理）。
+**「修复」页是唯一的真实执行入口**，四阶段引导单页：体检 → 看清问题 → 执行 → 自检。
+页面主角是网络路径仪器（本机 → 代理端口 → 出口 → 互联网 的实测信号迹线；未测得保持灰色「未测得」，绝不冒充健康）。
+点「体检本机（只读）」读取真实状态 → 在问题↔修复配对列表勾选动作 → 点「执行所选动作」→ 再点一次确认才写入；
+执行后自动进入自检阶段展示修后实测结果。同页安静工具条还有「开代理」「关代理」「回滚全部改动」「交给 AI」「还是没好」与「高风险模式」。
+诊断页的「去修复」会跳到本页并按诊断规则预选动作（如 DX-001 预选死代理清理）。
 所有改动记入 `%LOCALAPPDATA%\NetScopeRepair\maintenance\journal.json`；修复事件进观察会话时间线。
 需要管理员的动作（接口度量 / TUN 三字段 / WinHTTP / 机器级变量）在非管理员进程里会**如实跳过**，不会假装成功；
 需要时请以管理员身份启动程序。
@@ -100,11 +107,12 @@ dotnet run --project src/NetScope.Desktop
 **修复没好时的 AI 闭环**：点「还是没好」记录 user_unresolved → 点「交给 AI」生成脱敏交接包
 （`%LOCALAPPDATA%\NetScopeRepair\handoff\handoff-*.zip`，含 case/context/developer guide）并复制提示词 →
 粘贴给打开了本仓库的 AI 助手，按 guide 的四步（planner → executor → journal → 单测）新增或修正修复能力。
+打包期间有分级反馈：按下立即显示「正在生成交接包…」，大日志超过 8 秒追加安抚进度。
 
 开发自检（不开窗口）：
 
 ```text
-NetScope.Desktop.exe --render-screens <dir>   离屏渲染 9 个页面为 PNG
+NetScope.Desktop.exe --render-screens <dir>   离屏渲染 8 个页面为 PNG
 NetScope.Desktop.exe --smoke-test <file.json> 真实只读采集 3 次并尝试导出
 ```
 
@@ -152,7 +160,7 @@ src/NetScope.Storage/          NDJSON 事件日志、SQLite 投影、配额/恢�
 src/NetScope.Diagnostics/      DX-001/002/005/006/008/010/011
 src/NetScope.Adapters/         Nice/Apex/generic 只读适配、证据投影与依赖解释
 src/NetScope.Maintenance/      统一修复引擎：探测 / 计划 / 执行 / 修后自检 A~E / journal 回滚 / 代理开关 / 修复事件
-src/NetScope.Desktop/          WPF 界面、托盘、观察会话、案例回放 + 修复页
+src/NetScope.Desktop/          WPF 信号仪界面（双层左栏 + 网络路径仪器）、托盘、观察会话、案例回放 + 分阶段修复页
 src/NetScope.Cli/              check / snapshot / demo / replay / case-replay + status / repair / proxy / handoff
 tests/Contract · Unit · Windows · Replay · Adapters · Export · Desktop · Maintenance
 docs/adr/                      架构决策记录
@@ -174,8 +182,10 @@ docs/reports/                  任务与门禁报告
 - **保留段不等于污染，也不独自证明 fake-IP 模式。** 需要实际 DNS 返回与同作用域的可信运行态配置/适配器证据；只有路由或 DNS-server 线索时保持候选。
 - **观察缺口与网络失败分开。** 用户取消、权限不足、能力缺失和本地执行错误不计有效网络失败；同作用域缺口仍保留计数、原因和引用。
 - **未知事实保持未知。** scalar 接口事实带地址族，不借用另一族的标志；metric/TotalMetric 缺失为 null，部分读取失败传播 Partial。
-- **合成的就标合成。** 演示数据在横幅、首页状态、时间线与诊断页都明确标为 mock，不冒充本机观测。
+- **合成的就标合成。** 演示数据在顶部横幅、时间线与诊断页都明确标为 mock，不冒充本机观测。
 - **导出先预览、默认最小化。** 本地 ZIP 用包内稳定别名替换用户/设备/路径/内网地址，salt 不随包输出；D3 不采集也不导出。AI 交接包同样先脱敏。
+- **仪器只画实测信号。** 网络路径四站点着色来自真实快照与修后自检；未测得站点保持灰色「未测得」，
+  故障平线只在代理实测故障时出现。视觉：白底信号仪，IBM Plex Sans/Mono（内嵌 OFL），单一信号青绿 #0E7C66，状态色纯功能。
 
 ## 边界
 

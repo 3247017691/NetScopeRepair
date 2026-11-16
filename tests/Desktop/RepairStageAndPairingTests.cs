@@ -59,6 +59,69 @@ public sealed class RepairStageAndPairingTests : IDisposable
         _ = vm.Actions[0].Desired;
     }
 
+    private static RepairItemRow ItemRow(string? current, string? desired,
+        ActionRisk risk = ActionRisk.Safe, bool requiresElevation = false) =>
+        new(null, new ActionRow(new RepairAction("id", "标题", "详情", risk, "Kind", "target",
+            current, desired, requiresElevation, true, new Dictionary<string, string>())));
+
+    [Theory]
+    [InlineData(null, null, "")]
+    [InlineData("", "", "")]
+    [InlineData("http://127.0.0.1:7890", null, "http://127.0.0.1:7890 → 清除")]
+    [InlineData(null, "http://127.0.0.1:7897", "未设置 → http://127.0.0.1:7897")]
+    [InlineData("1", "0", "1 → 0")]
+    [InlineData("", "0", "未设置 → 0")]
+    [InlineData(" ", null, "  → 清除")]
+    public void BeforeAfterText_normalizes_degenerate_pairs(string? current, string? desired, string expected)
+    {
+        // "" is a real planner output (FlushDnsCache); it must collapse to "" not a bare " → ".
+        // Whitespace (" ") is real data and must survive — IsNullOrEmpty, never IsNullOrWhiteSpace.
+        Assert.Equal(expected, ItemRow(current, desired).BeforeAfterText);
+    }
+
+    [Fact]
+    public void BeforeAfterText_normalization_is_display_only()
+    {
+        var row = ItemRow("", "");
+        Assert.Equal("", row.Action.Current);
+        Assert.Equal("", row.Action.Desired);
+        Assert.Equal("", row.BeforeAfterText);
+    }
+
+    [Fact]
+    public void Risk_badge_marks_elevation()
+    {
+        var row = ItemRow("1", "0", ActionRisk.Elevated, requiresElevation: true);
+        Assert.Equal("Elevated · 需管理员", row.RiskBadge);
+        Assert.Equal(row.Action.Badge, row.RiskBadge);
+    }
+
+    [Fact]
+    public async Task Repair_item_values_pin_finding_and_action()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy()));
+        await vm.PreselectForDiagnosisAsync("DX-001");
+        var paired = vm.RepairItems.First(i => i.Action.Kind == "ClearProxyEnv");
+        Assert.True(paired.HasFinding);
+        Assert.Equal("DEAD_PROXY", paired.CodeRef);
+        Assert.Equal(paired.Finding!.Title, paired.ProblemText);
+        Assert.Equal(paired.Action.Title, paired.FixText);
+        Assert.Equal(paired.Action.Badge, paired.RiskBadge);
+    }
+
+    [Fact]
+    public async Task Flush_dns_cache_item_has_no_finding_and_empty_before_after()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy()));
+        await vm.PreselectForDiagnosisAsync(null);
+        var flush = vm.RepairItems.First(i => i.Action.Kind == "FlushDnsCache");
+        Assert.False(flush.HasFinding);
+        Assert.Equal("", flush.CodeRef);
+        Assert.Equal("刷新 DNS / 邻居缓存", flush.Action.Title);
+        Assert.Equal(flush.Action.Title, flush.ProblemText);
+        Assert.Equal("", flush.BeforeAfterText);
+    }
+
     [Fact]
     public async Task Repair_item_row_notifies_when_action_selection_changes_directly()
     {

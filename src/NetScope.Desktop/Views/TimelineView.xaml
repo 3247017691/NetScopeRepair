@@ -15,7 +15,7 @@
                                    HorizontalAlignment="Left" Margin="0,4,0,0" />
                     </StackPanel>
                     <Button DockPanel.Dock="Right" Content="重新读取时间线"
-                            Command="{Binding DataContext.RefreshTimelineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Command="{Binding RefreshCommand}"
                             Style="{StaticResource QuietButton}" VerticalAlignment="Center" />
                 </DockPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">

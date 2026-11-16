@@ -359,10 +359,6 @@
                                                     <DataTrigger Binding="{Binding BeforeAfterText}" Value="">
                                                         <Setter Property="Visibility" Value="Collapsed" />
                                                     </DataTrigger>
-                                                    <!-- planner emits empty Current/Desired for cache refresh: no bare arrow line -->
-                                                    <DataTrigger Binding="{Binding BeforeAfterText}" Value=" → ">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                    </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>

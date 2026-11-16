@@ -1,3 +1,4 @@
+using System.Reflection;
 using NetScope.Desktop.ViewModels;
 using NetScope.Maintenance;
 using NetScope.Storage;
@@ -35,5 +36,32 @@ public sealed class HandoffFeedbackTests
         for (var i = 0; i < 100 && vm.IsBusy; i++) await Task.Delay(50);
         Assert.False(vm.IsBusy);
         try { Directory.Delete(dir, true); } catch (IOException) { }
+    }
+
+    private static string? InvokeProgressText(bool isBusy, TimeSpan elapsed)
+    {
+        var mi = typeof(QuickRepairViewModel).GetMethod("HandoffProgressText", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(mi);
+        return (string?)mi!.Invoke(null, new object[] { isBusy, elapsed });
+    }
+
+    [Theory]
+    [InlineData(true, 9, "已耗时 9s")]
+    [InlineData(true, 7, null)]
+    [InlineData(false, 30, null)]
+    public void HandoffProgressText_gates_on_busy_and_elapsed(bool isBusy, int seconds, string? expectedContains)
+    {
+        var result = InvokeProgressText(isBusy, TimeSpan.FromSeconds(seconds));
+        if (expectedContains is null) Assert.Null(result);
+        else Assert.Contains(expectedContains, result!);
+    }
+
+    [Fact]
+    public void HandoffProgressText_triggers_just_after_eight_seconds()
+    {
+        // H2: the double comparison >8.0 fires at 8.1s (old int truncation waited until ~9s); display stays (int).
+        var result = InvokeProgressText(true, TimeSpan.FromSeconds(8.1));
+        Assert.NotNull(result);
+        Assert.Contains("已耗时 8s", result!);
     }
 }
