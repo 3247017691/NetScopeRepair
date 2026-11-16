@@ -1,0 +1,40 @@
+<UserControl x:Class="NetScope.Desktop.Controls.NetworkPathInstrument"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{StaticResource Recess}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="14" Padding="20,18,16,14">
+        <StackPanel>
+            <DockPanel Margin="0,0,0,6">
+                <TextBlock Text="网络路径（实测信号）" FontSize="12.5" Foreground="{StaticResource Muted}" FontWeight="Medium" DockPanel.Dock="Left"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                    <StackPanel Margin="0,0,26,0">
+                        <TextBlock x:Name="PortReadout" FontFamily="{StaticResource MonoFont}" FontSize="26" FontWeight="Medium" HorizontalAlignment="Right"/>
+                        <TextBlock Text="代理端口" FontSize="10.5" Foreground="{StaticResource Muted}" HorizontalAlignment="Right" Margin="0,5,0,0"/>
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="LatencyReadout" Text="—" FontFamily="{StaticResource MonoFont}" FontSize="26" FontWeight="Medium" Foreground="{StaticResource SubtleText}" HorizontalAlignment="Right"/>
+                        <TextBlock Text="出口延迟 ms（未测得）" FontSize="10.5" Foreground="{StaticResource Muted}" HorizontalAlignment="Right" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
+            <Viewbox Stretch="Uniform" Height="128">
+                <Canvas Width="760" Height="128">
+                    <Line X1="20" Y1="64" X2="740" Y2="64" Stroke="{StaticResource Line}" StrokeThickness="1" StrokeDashArray="2 5"/>
+                    <Path x:Name="HealthyPath" Stroke="{StaticResource Accent}" StrokeThickness="2.4" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Data="M20 64 L70 64 L82 64 L90 30 L100 98 L110 64 L150 64 L162 64 L170 34 L180 94 L190 64 L232 64"/>
+                    <Path x:Name="FaultPath" Stroke="{StaticResource Bad}" StrokeThickness="2.4" StrokeStartLineCap="Round" Opacity="0.85" Data="M232 64 L740 64"/>
+                    <Ellipse x:Name="LocalNode" Canvas.Left="14" Canvas.Top="58" Width="12" Height="12" Fill="{StaticResource Ok}"/>
+                    <Ellipse x:Name="ProxyNode" Canvas.Left="225" Canvas.Top="57" Width="14" Height="14" Fill="{StaticResource Bad}"/>
+                    <Ellipse x:Name="EgressNode" Canvas.Left="494" Canvas.Top="58" Width="12" Height="12" Fill="{StaticResource Unknown}"/>
+                    <Ellipse x:Name="InternetNode" Canvas.Left="734" Canvas.Top="58" Width="12" Height="12" Fill="{StaticResource Unknown}"/>
+                    <TextBlock x:Name="ProxyLabel" Canvas.Left="232" Canvas.Top="86" Text="代理端口" FontSize="12" Foreground="{StaticResource Bad}" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="ProxyNote" Canvas.Left="232" Canvas.Top="102" FontSize="10.5" Foreground="{StaticResource Bad}"/>
+                </Canvas>
+            </Viewbox>
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                <TextBlock Text="实测信号" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,0,18,0"/>
+                <TextBlock Text="中断 / 故障" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,0,18,0"/>
+                <TextBlock Text="未测得（未知）" FontSize="11" Foreground="{StaticResource Muted}"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>
