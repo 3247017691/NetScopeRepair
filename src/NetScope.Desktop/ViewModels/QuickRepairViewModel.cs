@@ -314,6 +314,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
         BeginOperation("正在体检本机（只读）…", determinate: false, write: false);
         try
         {
+            _lastPostCheck = null;
             await LoadPlanAsync(stream: true).ConfigureAwait(true);
             StatusMessage = "体检完成（只读）。勾选动作后点「执行所选动作」，会再确认一次才真正写入。";
         }
@@ -448,6 +449,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
         {
             var report = await _service.RestoreAsync(false, CancellationToken.None, _progress).ConfigureAwait(true);
             StatusMessage = $"回滚完成：还原 {report.Restored} 项，失败 {report.Failed} 项。";
+            _lastPostCheck = null;
             await LoadPlanAsync().ConfigureAwait(true);
         }
         finally
@@ -470,6 +472,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
             StatusMessage = on
                 ? "已开启代理并对齐到真实端口；已打开的程序需重启。"
                 : "已关闭代理并清理环境变量：现在全部直连，国内软件不需要开代理。";
+            _lastPostCheck = null;
             await LoadPlanAsync().ConfigureAwait(true);
         }
         finally

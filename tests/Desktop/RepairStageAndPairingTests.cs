@@ -83,6 +83,78 @@ public sealed class RepairStageAndPairingTests : IDisposable
         Assert.Equal(item.Action.IsSelected, item.IsSelected);
     }
 
+    [Fact]
+    public async Task Apply_shows_fresh_postcheck_but_restore_invalidates_it()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy()));
+        await vm.PreselectForDiagnosisAsync("DX-001");
+
+        await ApplySelectedAsync(vm);
+        Assert.Equal(PathStationState.Ok, vm.NetworkPath.Internet.State);
+        Assert.Equal("可达", vm.NetworkPath.Internet.ValueText);
+
+        vm.RestoreCommand.Execute(null);
+        Assert.Contains("再次点击确认回滚", vm.RestoreButtonText);
+        vm.RestoreCommand.Execute(null);
+        await WaitIdleAsync(vm, (AsyncRelayCommand)vm.RestoreCommand);
+
+        // Rollback restored the broken pre-repair state; the apply-time measurement must not imply health.
+        Assert.Equal(PathStationState.Unknown, vm.NetworkPath.Internet.State);
+        Assert.Equal("—", vm.NetworkPath.Internet.ValueText);
+    }
+
+    [Fact]
+    public async Task Manual_refresh_after_apply_invalidates_postcheck()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy()));
+        await vm.PreselectForDiagnosisAsync("DX-001");
+        await ApplySelectedAsync(vm);
+        Assert.Equal(PathStationState.Ok, vm.NetworkPath.Internet.State);
+
+        vm.RefreshCommand.Execute(null);
+        await WaitIdleAsync(vm, (AsyncRelayCommand)vm.RefreshCommand);
+
+        Assert.Equal(PathStationState.Unknown, vm.NetworkPath.Internet.State);
+        Assert.Equal("—", vm.NetworkPath.Internet.ValueText);
+    }
+
+    [Fact]
+    public async Task Proxy_off_and_on_after_apply_invalidate_postcheck()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy()));
+        await vm.PreselectForDiagnosisAsync("DX-001");
+        await ApplySelectedAsync(vm);
+        Assert.Equal(PathStationState.Ok, vm.NetworkPath.Internet.State);
+
+        vm.ProxyOffCommand.Execute(null);
+        await WaitIdleAsync(vm, (AsyncRelayCommand)vm.ProxyOffCommand);
+        Assert.Equal(PathStationState.Unknown, vm.NetworkPath.Internet.State);
+
+        // A fresh apply re-measures; proxy on (no live port in this fixture) must invalidate again.
+        await ApplySelectedAsync(vm);
+        Assert.Equal(PathStationState.Ok, vm.NetworkPath.Internet.State);
+
+        vm.ProxyOnCommand.Execute(null);
+        await WaitIdleAsync(vm, (AsyncRelayCommand)vm.ProxyOnCommand);
+        Assert.Equal(PathStationState.Unknown, vm.NetworkPath.Internet.State);
+        Assert.Equal("—", vm.NetworkPath.Internet.ValueText);
+    }
+
+    private static async Task ApplySelectedAsync(QuickRepairViewModel vm)
+    {
+        vm.ApplyCommand.Execute(null);
+        Assert.Contains("再次点击确认执行", vm.ApplyButtonText);
+        vm.ApplyCommand.Execute(null);
+        await WaitIdleAsync(vm, (AsyncRelayCommand)vm.ApplyCommand);
+    }
+
+    private static async Task WaitIdleAsync(QuickRepairViewModel vm, AsyncRelayCommand command)
+    {
+        for (var i = 0; i < 400 && (vm.IsBusy || command.IsRunning); i++) await Task.Delay(25);
+        Assert.False(vm.IsBusy);
+        Assert.False(command.IsRunning);
+    }
+
     public void Dispose() { try { Directory.Delete(_dir, true); } catch (IOException) { } }
 
     private sealed class StaticProbe(MaintenanceSnapshot s) : IMaintenanceProbe
