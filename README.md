@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet" alt=".NET 10" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows" alt="Windows" />
   <a href="https://github.com/3247017691/NetScopeRepair/releases"><img src="https://img.shields.io/github/v/release/3247017691/NetScopeRepair?label=release" alt="Release" /></a>
-  <img src="https://img.shields.io/badge/tests-985%20passing-brightgreen.svg" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-992%20passing-brightgreen.svg" alt="Tests" />
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@ NetScope Repair 把这些变成 **可读的诊断结论 → 可勾选的修复�
 </p>
 <p align="center"><sub>诊断与证据：每条结论都引用实测 <code>evidence_id</code>，并列出反证与缺失证据，不伪造结论。</sub></p>
 
-> 📌 本文所有界面截图均为**合成演示数据（mock）**，不代表任何真实本机状态，也不会发起网络请求。界面截图为信号仪改版前版本，截图刷新另起任务。
+> 📌 本文所有界面截图均为**合成演示数据（mock）**，不代表任何真实本机状态，也不会发起网络请求。
 
 ## ✨ 核心能力
 
@@ -107,7 +107,7 @@ NetScope Repair 把这些变成 **可读的诊断结论 → 可勾选的修复�
 ### 方式一：下载发布版（推荐）
 
 1. 安装 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)（x64）。
-2. 到 [Releases](https://github.com/3247017691/NetScopeRepair/releases/latest) 下载 `NetScopeRepair-v1.0.0-win-x64.zip` 并解压到任意目录。
+2. 到 [Releases](https://github.com/3247017691/NetScopeRepair/releases/latest) 下载 `NetScopeRepair-v1.1.0-win-x64.zip` 并解压到任意目录。
 3. 双击 `NetScope.Desktop.exe`。需要管理员的动作（接口度量 / TUN 三字段 / WinHTTP）请**以管理员身份启动**。
 
 默认自动开始**本机只读快照**，不发起外部探测；关闭窗口隐藏到托盘继续观察，显式「退出」才停止采集。
@@ -116,7 +116,7 @@ NetScope Repair 把这些变成 **可读的诊断结论 → 可勾选的修复�
 
 ```bash
 dotnet run --project src/NetScope.Desktop      # 桌面
-dotnet test NetScopeRepair.slnx                # 8 个测试工程，985 项测试
+dotnet test NetScopeRepair.slnx                # 8 个测试工程，992 项测试
 ```
 
 ### CLI
@@ -148,16 +148,12 @@ netscope handoff               # 生成 AI 失败案例交接包并打印提示�
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/home.png" alt="首页" width="100%" /><br/><sub>首页 · 当前状态与观察会话</sub></td>
     <td width="50%"><img src="docs/images/timeline.png" alt="时间线" width="100%" /><br/><sub>时间线 · 事件、缺口与损坏行</sub></td>
-  </tr>
-  <tr>
     <td width="50%"><img src="docs/images/case-replay.png" alt="案例回放" width="100%" /><br/><sub>案例回放 · 固定规则重放本地故障包</sub></td>
-    <td width="50%"><img src="docs/images/settings.png" alt="设置" width="100%" /><br/><sub>设置 · 观察与探测目标</sub></td>
   </tr>
   <tr>
+    <td width="50%"><img src="docs/images/settings.png" alt="设置" width="100%" /><br/><sub>设置 · 观察与探测目标</sub></td>
     <td width="50%"><img src="docs/images/help.png" alt="帮助" width="100%" /><br/><sub>帮助 · 离线说明与边界</sub></td>
-    <td width="50%"></td>
   </tr>
 </table>
 

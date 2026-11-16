@@ -36,7 +36,7 @@ IBM Plex Sans/Mono 内嵌字体，白底信号青绿（#0E7C66）调色板；动
 
 ```text
 dotnet build NetScopeRepair.slnx  ->  0 警告 0 错误
-8 个测试工程                      ->  985 通过 / 0 失败 / 0 跳过
+8 个测试工程                      ->  992 通过 / 0 失败 / 0 跳过
 dotnet publish -c Release         ->  artifacts/M4-UnifiedRepair/（可直接双击）
 ```
 
