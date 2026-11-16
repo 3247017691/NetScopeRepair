@@ -90,7 +90,7 @@
                 </StackPanel>
 
                 <!-- Primary entry: repair -->
-                <Button DockPanel.Dock="Top" Margin="12,2,12,10"
+                <Button x:Name="RepairEntryButton" DockPanel.Dock="Top" Margin="12,2,12,10"
                         Command="{Binding Home.OpenRepairCommand}"
                         Cursor="Hand" FocusVisualStyle="{StaticResource FocusVisual}"
                         AutomationProperties.Name="修复">
@@ -118,7 +118,7 @@
                                             <TextBlock Text="{Binding PrimarySection.Caption}" FontSize="10.5" Margin="0,2,0,0"
                                                        Foreground="{StaticResource SubtleText}" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
-                                        <Ellipse Grid.Column="2" Width="7" Height="7" Fill="{Binding StateTone}"
+                                        <Ellipse x:Name="LiveDot" Grid.Column="2" Width="7" Height="7" Fill="{Binding StateTone}"
                                                  VerticalAlignment="Center" Margin="8,0,0,0" />
                                     </Grid>
                                 </Border>
@@ -217,7 +217,7 @@
                                        TextWrapping="Wrap" VerticalAlignment="Center" Margin="6,0,0,0" />
                         </Grid>
                     </Border>
-                    <ContentControl Content="{Binding SelectedSection.ViewModel}" />
+                    <ContentControl x:Name="PageHost" Content="{Binding SelectedSection.ViewModel}" />
                 </StackPanel>
             </ScrollViewer>
 

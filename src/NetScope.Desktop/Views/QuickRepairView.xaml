@@ -47,6 +47,12 @@
             <Setter Property="Padding" Value="20,10" />
             <Setter Property="MinWidth" Value="170" />
             <Style.Triggers>
+                <!-- Leading busy guard: greys the primary during any running operation (including a
+                     Verify-stage handoff/refresh). First so the stage triggers below still win their
+                     setters. Two-click pending has IsBusy=false, so confirmation stays clickable. -->
+                <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Stage}" Value="Review">
                     <Setter Property="Content" Value="{Binding ApplyButtonText}" />
                     <Setter Property="Command" Value="{Binding ApplyCommand}" />
@@ -61,6 +67,16 @@
                     <Setter Property="Content" Value="重新体检" />
                     <Setter Property="Command" Value="{Binding RefreshCommand}" />
                 </DataTrigger>
+                <!-- Later trigger wins: an unresolved run turns the Verify primary into the AI handoff
+                     entry. No IsEnabled setter, so it inherits the leading busy guard above. -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Stage}" Value="Verify" />
+                        <Condition Binding="{Binding IsUnresolved}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Content" Value="交给 AI" />
+                    <Setter Property="Command" Value="{Binding HandoffCommand}" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -89,7 +105,7 @@
                     </Style>
                 </Border.Style>
                 <StackPanel Orientation="Horizontal">
-                    <Border>
+                    <Border x:Name="Badge1">
                         <Border.Style>
                             <Style TargetType="Border" BasedOn="{StaticResource StageChipBadge}">
                                 <Style.Triggers>
@@ -113,7 +129,7 @@
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipNumber}">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Stage}" Value="Inspect">
-                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Stage}" Value="Review">
                                             <Setter Property="Foreground" Value="{StaticResource Ok}" />
@@ -157,7 +173,7 @@
                     </Style>
                 </Border.Style>
                 <StackPanel Orientation="Horizontal">
-                    <Border>
+                    <Border x:Name="Badge2">
                         <Border.Style>
                             <Style TargetType="Border" BasedOn="{StaticResource StageChipBadge}">
                                 <Style.Triggers>
@@ -178,7 +194,7 @@
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipNumber}">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Stage}" Value="Review">
-                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Stage}" Value="Execute">
                                             <Setter Property="Foreground" Value="{StaticResource Ok}" />
@@ -218,7 +234,7 @@
                     </Style>
                 </Border.Style>
                 <StackPanel Orientation="Horizontal">
-                    <Border>
+                    <Border x:Name="Badge3">
                         <Border.Style>
                             <Style TargetType="Border" BasedOn="{StaticResource StageChipBadge}">
                                 <Style.Triggers>
@@ -236,7 +252,7 @@
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipNumber}">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Stage}" Value="Execute">
-                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Stage}" Value="Verify">
                                             <Setter Property="Foreground" Value="{StaticResource Ok}" />
@@ -272,7 +288,7 @@
                     </Style>
                 </Border.Style>
                 <StackPanel Orientation="Horizontal">
-                    <Border>
+                    <Border x:Name="Badge4">
                         <Border.Style>
                             <Style TargetType="Border" BasedOn="{StaticResource StageChipBadge}">
                                 <Style.Triggers>
@@ -287,7 +303,7 @@
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource StageChipNumber}">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Stage}" Value="Verify">
-                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="Foreground" Value="{StaticResource OnAccent}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -314,10 +330,10 @@
         <controls:NetworkPathInstrument Model="{Binding NetworkPath}" Margin="0,0,0,14" />
 
         <!-- 3. Verdict -->
-        <TextBlock Text="{Binding VerdictText}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,14" />
+        <TextBlock x:Name="VerdictBlock" Text="{Binding VerdictText}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,14" />
 
         <!-- 4. Problem-fix paired list -->
-        <StackPanel Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}" Margin="0,0,0,14">
+        <StackPanel x:Name="PairingPanel" Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}" Margin="0,0,0,14">
             <ItemsControl ItemsSource="{Binding RepairItems}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -463,16 +479,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource LineSubtle}" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,9" Margin="0,0,0,8">
-                                <Border.Triggers>
-                                    <EventTrigger RoutedEvent="Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.16" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Border.Triggers>
+                                    CornerRadius="6" Padding="12,9" Margin="0,0,0,8" Loaded="OnStepRowLoaded">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
@@ -536,16 +543,7 @@
                                 <ItemsControl ItemsSource="{Binding LogLines}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Margin="0,0,0,3">
-                                                <Grid.Triggers>
-                                                    <EventTrigger RoutedEvent="Loaded">
-                                                        <BeginStoryboard>
-                                                            <Storyboard>
-                                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.14" />
-                                                            </Storyboard>
-                                                        </BeginStoryboard>
-                                                    </EventTrigger>
-                                                </Grid.Triggers>
+                                            <Grid Margin="0,0,0,3" Loaded="OnLogLineLoaded">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="62" />
                                                     <ColumnDefinition Width="*" />

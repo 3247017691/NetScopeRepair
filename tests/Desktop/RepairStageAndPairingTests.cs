@@ -8,9 +8,9 @@ public sealed class RepairStageAndPairingTests : IDisposable
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "netscope-stage-" + Guid.NewGuid().ToString("N"));
     public RepairStageAndPairingTests() => Directory.CreateDirectory(_dir);
 
-    private QuickRepairService Service(MaintenanceSnapshot snap) => new(
-        new StaticProbe(snap), new NoopExecutor(),
-        new MaintenanceJournalStore(Path.Combine(_dir, "journal.json")), new GreenPostCheck());
+    private QuickRepairService Service(MaintenanceSnapshot snap, IMaintenanceExecutor? executor = null, IPostCheckProbe? postCheck = null) => new(
+        new StaticProbe(snap), executor ?? new NoopExecutor(),
+        new MaintenanceJournalStore(Path.Combine(_dir, "journal.json")), postCheck ?? new GreenPostCheck());
 
     private static MaintenanceSnapshot DeadProxy() => new(
         DateTimeOffset.Now, true, 21, "WLAN", null, Array.Empty<int>(),
@@ -140,6 +140,62 @@ public sealed class RepairStageAndPairingTests : IDisposable
         Assert.Equal("—", vm.NetworkPath.Internet.ValueText);
     }
 
+    [Fact]
+    public void IsUnresolved_is_false_before_any_run()
+    {
+        var vm = new QuickRepairViewModel();
+        Assert.False(vm.IsUnresolved);
+    }
+
+    [Fact]
+    public async Task Failed_apply_sets_unresolved_at_verify()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy(), new FailExecutor()));
+        await vm.PreselectForDiagnosisAsync("DX-001");
+        await ApplySelectedAsync(vm);
+        Assert.Equal(RepairRunState.Failed, vm.RunState);
+        Assert.Equal(RepairStage.Verify, vm.Stage);
+        Assert.True(vm.IsUnresolved);
+    }
+
+    [Fact]
+    public async Task Postcheck_unresolved_sets_unresolved_at_verify()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy(), postCheck: new RedPostCheck()));
+        await vm.PreselectForDiagnosisAsync("DX-001");
+        await ApplySelectedAsync(vm);
+        Assert.Equal(RepairRunState.Failed, vm.RunState);
+        Assert.Equal(RepairStage.Verify, vm.Stage);
+        Assert.True(vm.IsUnresolved);
+    }
+
+    [Fact]
+    public async Task Refresh_clears_unresolved()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy(), new FailExecutor()));
+        await vm.PreselectForDiagnosisAsync("DX-001");
+        await ApplySelectedAsync(vm);
+        Assert.True(vm.IsUnresolved);
+
+        vm.RefreshCommand.Execute(null);
+        await WaitIdleAsync(vm, (AsyncRelayCommand)vm.RefreshCommand);
+        Assert.False(vm.IsUnresolved);
+    }
+
+    [Fact]
+    public async Task IsUnresolved_raises_property_changed()
+    {
+        var vm = new QuickRepairViewModel(Service(DeadProxy(), new FailExecutor()));
+        await vm.PreselectForDiagnosisAsync("DX-001");
+        var raised = false;
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(QuickRepairViewModel.IsUnresolved)) raised = true;
+        };
+        await ApplySelectedAsync(vm);
+        Assert.True(raised);
+    }
+
     private static async Task ApplySelectedAsync(QuickRepairViewModel vm)
     {
         vm.ApplyCommand.Execute(null);
@@ -168,4 +224,14 @@ public sealed class RepairStageAndPairingTests : IDisposable
     }
     private sealed class GreenPostCheck : IPostCheckProbe
     { public Task<PostCheckObservation> ObserveAsync(CancellationToken ct) => Task.FromResult(new PostCheckObservation(21, true, true, true, true, false)); }
+    private sealed class FailExecutor : IMaintenanceExecutor
+    {
+        public Task<ActionResult> ApplyAsync(RepairAction a, CancellationToken ct)
+            => Task.FromResult(new ActionResult(a.Id, a.Title, false, a.Current, a.Desired, "x"));
+        public Task<(bool Ok, string Message)> RestoreAsync(JournalEntry e, CancellationToken ct) => Task.FromResult((true, "ok"));
+        public Task BroadcastEnvironmentAsync(CancellationToken ct) => Task.CompletedTask;
+    }
+    // PhysicalInternet=false + DnsOk=false → PostCheckClassifier.Success=false → Done.Applied=false.
+    private sealed class RedPostCheck : IPostCheckProbe
+    { public Task<PostCheckObservation> ObserveAsync(CancellationToken ct) => Task.FromResult(new PostCheckObservation(21, false, false, true, true, false)); }
 }

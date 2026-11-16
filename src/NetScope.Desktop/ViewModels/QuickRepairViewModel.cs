@@ -215,6 +215,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
             Raise(nameof(RunStateText));
             Raise(nameof(RunStateTone));
             Raise(nameof(IsRunIdle));
+            Raise(nameof(IsUnresolved));
             Raise(nameof(Stage));
             Raise(nameof(VerdictText));
         }
@@ -239,6 +240,7 @@ public sealed class QuickRepairViewModel : ViewModelBase
         : Findings[0].Title + "。" + Findings[0].Detail;
 
     public bool IsRunIdle => RunState == RepairRunState.Idle;
+    public bool IsUnresolved => RunState == RepairRunState.Failed;
     public string RunStateText => RunState switch
     {
         RepairRunState.Running => "执行中",

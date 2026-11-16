@@ -22,11 +22,12 @@
                     <Path x:Name="HealthyPath" Stroke="{StaticResource Accent}" StrokeThickness="2.4" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                           Data="M20 64 L70 64 L82 64 L90 30 L100 98 L110 64 L150 64 L162 64 L170 34 L180 94 L190 64 L232 64"/>
                     <Path x:Name="FaultPath" Stroke="{StaticResource Bad}" StrokeThickness="2.4" StrokeStartLineCap="Round" Opacity="0.85" Data="M232 64 L740 64"/>
+                    <Ellipse x:Name="ScanDot" Width="8" Height="8" Margin="-4,-4" Fill="{StaticResource Accent}" Visibility="Collapsed" IsHitTestVisible="False"/>
                     <Ellipse x:Name="LocalNode" Canvas.Left="14" Canvas.Top="58" Width="12" Height="12" Fill="{StaticResource Ok}"/>
                     <Ellipse x:Name="ProxyNode" Canvas.Left="225" Canvas.Top="57" Width="14" Height="14" Fill="{StaticResource Bad}"/>
                     <Ellipse x:Name="EgressNode" Canvas.Left="494" Canvas.Top="58" Width="12" Height="12" Fill="{StaticResource Unknown}"/>
                     <Ellipse x:Name="InternetNode" Canvas.Left="734" Canvas.Top="58" Width="12" Height="12" Fill="{StaticResource Unknown}"/>
-                    <TextBlock x:Name="ProxyLabel" Canvas.Left="232" Canvas.Top="86" Text="代理端口" FontSize="12" Foreground="{StaticResource Bad}" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="ProxyLabel" Canvas.Left="208" Canvas.Top="86" Text="代理端口" FontSize="12" Foreground="{StaticResource Bad}" FontWeight="SemiBold"/>
                     <TextBlock x:Name="ProxyNote" Canvas.Left="232" Canvas.Top="102" FontSize="10.5" Foreground="{StaticResource Bad}"/>
                     <TextBlock x:Name="LocalLabel" Canvas.Left="8" Canvas.Top="86" Text="本机" FontSize="12" Foreground="{StaticResource SubtleText}"/>
                     <TextBlock x:Name="EgressLabel" Canvas.Left="488" Canvas.Top="86" Text="出口" FontSize="12" Foreground="{StaticResource SubtleText}"/>
