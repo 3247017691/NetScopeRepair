@@ -22,6 +22,9 @@ docs/reports/evidence/
 # SDD scratch workspace (ledger/briefs/review packages)
 .superpowers/
 
+# Isolated git worktrees for parallel subagent implementation
+.worktrees/
+
 # Local runtime data that must never be committed
 *.ndjson
 !fixtures/**/*.ndjson
