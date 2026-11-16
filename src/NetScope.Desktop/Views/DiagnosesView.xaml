@@ -385,7 +385,7 @@
                                 <DataTemplate>
                                     <Border Background="{StaticResource WarnBg}" BorderBrush="{StaticResource WarnBorder}" BorderThickness="1"
                                             CornerRadius="6" Padding="8,5" Margin="0,0,0,4">
-                                        <TextBlock Text="{Binding RuleId, StringFormat=· {0}}" FontSize="12"
+                                        <TextBlock Text="{Binding RuleId}" FontSize="12"
                                                    Foreground="{StaticResource Warn}" />
                                     </Border>
                                 </DataTemplate>

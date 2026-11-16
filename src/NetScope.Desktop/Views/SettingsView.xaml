@@ -57,7 +57,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,24,0">
                             <TextBlock Text="探测目标 URL" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
-                            <TextBlock Text="留空则禁用外部验证。保存或打开设置不会请求该地址；只有首页“立即诊断”才会发起。"
+                            <TextBlock Text="留空则禁用外部验证。保存或打开设置不会请求该地址；只有顶栏“立即诊断”才会发起。"
                                        Style="{StaticResource Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                         <TextBox Grid.Column="1" Text="{Binding TargetEndpoint, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" />
@@ -163,6 +163,18 @@
                         </ComboBox>
                     </Grid>
                 </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- Demo Card -->
+        <Border Style="{StaticResource SectionCard}">
+            <StackPanel>
+                <TextBlock Text="演示" Style="{StaticResource H2}" />
+                <TextBlock Text="载入合成演示会暂停真实观察；演示数据全部为 mock，不发起网络请求，也不修改系统。点击顶栏“开始观察”回到真实会话。"
+                           Style="{StaticResource Caption}" HorizontalAlignment="Left" Margin="0,4,0,14" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="载入合成演示" Command="{Binding LoadDemoCommand}" Style="{StaticResource QuietButton}" />
+                </StackPanel>
             </StackPanel>
         </Border>
 

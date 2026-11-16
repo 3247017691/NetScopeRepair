@@ -48,12 +48,13 @@ public sealed class MainViewModel : ViewModelBase
         CaseReplay = new CaseReplayViewModel();
         Clients = new ClientsViewModel(services.Clients, services.Explanations);
         Export = new ExportViewModel(services.Exporter, () => DisplaySessionPath, _pickFolder);
-        Settings = new SettingsViewModel(services.SettingsStore, _settings, ApplySettings);
+        LoadDemoCommand = new AsyncRelayCommand(() => LoadDemoAsync(), null, ex => _ = HandleErrorAsync(ex));
+        Settings = new SettingsViewModel(services.SettingsStore, _settings, ApplySettings, LoadDemoCommand);
         Help = new HelpViewModel(services.Session.SessionPath, services.Paths.Root);
 
         Sections = new[]
         {
-            new NavSection("修复", "本机真实体检 · TUN/残留/代理 · 可回滚", QuickRepair,
+            new NavSection("修复", "本机真实体检，TUN/残留/代理，可回滚", QuickRepair,
                 "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
                 NavGroup.Primary),
             new NavSection("诊断与证据", "结论、证据与反证", Diagnoses,
@@ -74,7 +75,6 @@ public sealed class MainViewModel : ViewModelBase
                 NavGroup.Footer),
         };
         _selectedSection = Sections[0];
-        LoadDemoCommand = new AsyncRelayCommand(() => LoadDemoAsync(), null, ex => _ = HandleErrorAsync(ex));
         RefreshTimelineCommand = new AsyncRelayCommand(
             async () => await Timeline.LoadAsync(DisplaySessionPath), null, ex => _ = HandleErrorAsync(ex));
 
@@ -88,7 +88,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             if (e.PropertyName is nameof(QuickRepairViewModel.HasPlan) or nameof(QuickRepairViewModel.SummaryText))
                 _dispatcher.Post(() => Home.RepairHintText = QuickRepair.HasPlan
-                    ? "发现 " + QuickRepair.Actions.Count + " 项可执行修复动作 → 去修复"
+                    ? "发现 " + QuickRepair.Actions.Count + " 项可修复动作，去修复"
                     : "修复：体检本机，发现可修复问题");
         };
     }

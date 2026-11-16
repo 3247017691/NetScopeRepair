@@ -149,7 +149,7 @@
                         <Path Data="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
                               Stroke="{StaticResource Muted}" StrokeThickness="1.5" Width="12" Height="12"
                               Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="修复需二次确认 · 全部可回滚" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Medium" VerticalAlignment="Center" />
+                        <TextBlock Text="修复需二次确认，全部可回滚" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Medium" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>
 
@@ -194,13 +194,7 @@
                         </Border>
                         <Button Content="开始观察" Command="{Binding Home.StartCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
                         <Button Content="暂停" Command="{Binding Home.PauseCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
-                        <Button Content="立即诊断" Command="{Binding Home.DiagnoseCommand}" Style="{StaticResource QuietButton}" Margin="0,0,8,0" />
-                        <Menu Background="Transparent" VerticalAlignment="Center">
-                            <MenuItem Header="更多" Foreground="{StaticResource Muted}" FontSize="12.5" FontWeight="Medium"
-                                      FontFamily="{StaticResource UiFont}" Padding="11,6" Cursor="Hand">
-                                <MenuItem Header="载入合成演示" Command="{Binding LoadDemoCommand}" />
-                            </MenuItem>
-                        </Menu>
+                        <Button Content="立即诊断" Command="{Binding Home.DiagnoseCommand}" Style="{StaticResource QuietButton}" />
                     </StackPanel>
                 </DockPanel>
             </Border>

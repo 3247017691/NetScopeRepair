@@ -252,10 +252,10 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Border Grid.Row="0" Background="{StaticResource HoverSurface}" CornerRadius="8,8,0,0" Padding="12,0" BorderBrush="{StaticResource LineSubtle}" BorderThickness="0,0,0,1">
-                            <TextBlock Text="JSON Payload · 只读最小化事实" FontFamily="Cascadia Mono, Consolas" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+                            <TextBlock Text="只读 JSON 最小化事实" FontFamily="{StaticResource MonoFont}" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
                         </Border>
                         <ScrollViewer Grid.Row="1" MaxHeight="280" VerticalScrollBarVisibility="Auto" Padding="14,12">
-                            <TextBlock Text="{Binding DetailJson}" FontFamily="Cascadia Mono, Consolas" FontSize="11.5"
+                            <TextBlock Text="{Binding DetailJson}" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
                                        Foreground="{StaticResource Ink}" TextWrapping="Wrap" LineHeight="18" />
                         </ScrollViewer>
                     </Grid>

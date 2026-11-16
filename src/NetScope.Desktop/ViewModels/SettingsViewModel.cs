@@ -20,10 +20,12 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool? _hideOnClose;
     private bool _loading;
 
-    public SettingsViewModel(SettingsStore store, AppSettings initial, Action<AppSettings> applied)
+    public SettingsViewModel(SettingsStore store, AppSettings initial, Action<AppSettings> applied,
+        ICommand? loadDemoCommand = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _applied = applied ?? throw new ArgumentNullException(nameof(applied));
+        LoadDemoCommand = loadDemoCommand;
         Load(initial);
         SaveCommand = new AsyncRelayCommand(() =>
         {
@@ -33,6 +35,9 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     public ICommand SaveCommand { get; }
+
+    /// <summary>Shell-owned synthetic demo loader; the settings page is the demo entry point.</summary>
+    public ICommand? LoadDemoCommand { get; }
 
     public string IntervalSeconds
     {
@@ -57,7 +62,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public string TargetProfileCaption =>
         "目标档案只在本机保存：目标 ID、URL、期望状态码、地址族与显式代理。保存或打开设置都不会发起任何请求；"
-        + "只有回到首页手动点击“立即诊断”才会按该档案发起外部验证。";
+        + "只有点击顶栏“立即诊断”才会按该档案发起外部验证。";
 
     public string ExpectedStatus
     {

@@ -89,9 +89,9 @@
                                     <TextBlock Text="{Binding Rule}" Style="{StaticResource Mono}" FontSize="11.5" Foreground="{StaticResource Ink}" />
                                     <TextBlock FontSize="12" Foreground="{StaticResource Ink}" Margin="0,3,0,0">
                                         <Run Text="{Binding Disposition}" />
-                                        <Run Text=" · 记录 " />
+                                        <Run Text="，记录 " />
                                         <Run Text="{Binding Recorded}" />
-                                        <Run Text=" / 重算 " />
+                                        <Run Text="，重算 " />
                                         <Run Text="{Binding Recomputed}" />
                                     </TextBlock>
                                     <TextBlock Text="{Binding Notes}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
