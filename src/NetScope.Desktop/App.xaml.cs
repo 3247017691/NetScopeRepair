@@ -86,7 +86,10 @@ public partial class App : System.Windows.Application
 
     private async Task RenderScreensAsync(string directory)
     {
-        _services = Composition.CreateDefault(synthetic: true);
+        // Isolated data root (like the smoke test): screenshots are public, so the demo banner must
+        // not show the real user profile path, and rendering must not pollute the real sessions dir.
+        var isolatedPaths = new AppPaths(Path.Combine(Path.GetFullPath(directory), "render-data"));
+        _services = Composition.CreateDefault(isolatedPaths, synthetic: true);
         _viewModel = new MainViewModel(_services, new WpfUiDispatcher(Dispatcher));
         await ScreenRenderer.RenderAsync(_viewModel, directory);
     }
