@@ -77,11 +77,70 @@ public sealed class MaintenanceTests
     {
         var first = MaintenancePlanner.Build(Snapshot(
             interfaces: new[] { Iface(18, "以太网", true, "LocalNetwork", 35) }));
+        Assert.Contains(first.Findings, finding => finding.Code == "STALE_EGRESS");
         Assert.Contains(first.Actions, action => action.Kind == "RaiseInterfaceMetric");
 
         var second = MaintenancePlanner.Build(Snapshot(
             interfaces: new[] { Iface(18, "以太网", true, "LocalNetwork", MaintenancePlanner.HighInterfaceMetric) }));
+        Assert.DoesNotContain(second.Findings, finding => finding.Code == "STALE_EGRESS");
         Assert.DoesNotContain(second.Actions, action => action.Kind == "RaiseInterfaceMetric");
+    }
+
+    [Fact]
+    public void Yielded_stale_routes_suppress_route_warnings_but_still_report_static_dns()
+    {
+        var snapshotWithStaticDns = Snapshot(
+            activeEgress: 39,
+            interfaces: new[]
+            {
+                Iface(39, "宽带连接", true, "Internet", 25),
+                Iface(21, "WLAN", true, "Unknown", 4255, staleDns: false),
+                Iface(19, "以太网", true, "LocalNetwork", 4725, staleDns: true),
+            });
+
+        var planWithStaticDns = MaintenancePlanner.Build(snapshotWithStaticDns, deep: true);
+        Assert.DoesNotContain(planWithStaticDns.Findings, f => f.Code == "MULTIPLE_DEFAULT_ROUTES");
+        Assert.DoesNotContain(planWithStaticDns.Findings, f => f.Code == "STALE_EGRESS");
+        var dnsFinding = Assert.Single(planWithStaticDns.Findings, f => f.Code == "STALE_DNS");
+        Assert.Contains("以太网", dnsFinding.Title);
+        Assert.Contains(planWithStaticDns.Actions, a => a.Id == "reset-dns:19" && a.Kind == "ResetInterfaceDns");
+
+        var snapshotAfterDnsReset = Snapshot(
+            activeEgress: 39,
+            interfaces: new[]
+            {
+                Iface(39, "宽带连接", true, "Internet", 25),
+                Iface(21, "WLAN", true, "Unknown", 4255, staleDns: false),
+                Iface(19, "以太网", true, "LocalNetwork", 4725, staleDns: false),
+            });
+
+        var cleanPlan = MaintenancePlanner.Build(snapshotAfterDnsReset, deep: true);
+        Assert.Empty(cleanPlan.Findings);
+        Assert.Empty(cleanPlan.Actions);
+    }
+
+    [Fact]
+    public void Machine_facts_only_treat_registry_nameserver_as_static_dns()
+    {
+        const string json = """
+        {"Interfaces":[{"Index":39,"Alias":"宽带连接","State":"Connected","Metric":25,"Auto":"Enabled","Dhcp":"Disabled","Ignore":"Disabled","Mtu":1480},
+                       {"Index":21,"Alias":"WLAN","State":"Connected","Metric":4255,"Auto":"Enabled","Dhcp":"Enabled","Ignore":"Disabled","Mtu":1500},
+                       {"Index":19,"Alias":"以太网","State":"Connected","Metric":4725,"Auto":"Enabled","Dhcp":"Enabled","Ignore":"Disabled","Mtu":1500}],
+         "Routes":[{"Index":39,"NextHop":"0.0.0.0"},{"Index":21,"NextHop":"10.217.6.165"},{"Index":19,"NextHop":"192.168.38.1"}],
+         "Profiles":[{"Index":39,"Connectivity":"Internet"},{"Index":21,"Connectivity":"Unknown"},{"Index":19,"Connectivity":"LocalNetwork"}],
+         "Addrs":[{"Index":39,"Address":"10.254.5.242"},{"Index":21,"Address":"10.217.6.242"},{"Index":19,"Address":"192.168.38.22"}],
+         "Dns":[{"Index":21,"NameServer":"","Servers":["10.217.6.165"]},{"Index":19,"NameServer":"119.29.29.29, 223.5.5.5","Servers":["119.29.29.29","223.5.5.5"]}],
+         "Ghosts":[],"BestRouteIndex":39,"Adapters":[],"Owners":[],"Src4":"10.254.5.242","Src5":""}
+        """;
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var facts = WindowsMaintenanceProbe.MachineFacts.Parse(doc.RootElement);
+        var interfaces = WindowsMaintenanceProbe.BuildInterfaces(facts, new List<string>());
+
+        var wlan = Assert.Single(interfaces, i => i.Index == 21);
+        Assert.Empty(wlan.DnsServers);
+
+        var eth = Assert.Single(interfaces, i => i.Index == 19);
+        Assert.Equal(new[] { "119.29.29.29", "223.5.5.5" }, eth.DnsServers);
     }
 
     [Fact]

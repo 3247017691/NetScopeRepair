@@ -219,10 +219,11 @@ $ifaces=@(Get-NetIPInterface -AddressFamily IPv4 | Select-Object @{n='Index';e={
 $routes=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -AddressFamily IPv4 | Select-Object @{n='Index';e={[int]$_.ifIndex}},@{n='NextHop';e={$_.NextHop}},@{n='Metric';e={[int]$_.RouteMetric}})
 $profiles=@(Get-NetConnectionProfile | Select-Object @{n='Index';e={[int]$_.InterfaceIndex}},@{n='Connectivity';e={$_.IPv4Connectivity.ToString()}})
 $addrs=@(Get-NetIPAddress -AddressFamily IPv4 | Select-Object @{n='Index';e={[int]$_.InterfaceIndex}},@{n='Address';e={$_.IPAddress}})
-$dns=@(Get-DnsClientServerAddress -AddressFamily IPv4 | Select-Object @{n='Index';e={[int]$_.InterfaceIndex}},@{n='Servers';e={@($_.ServerAddresses)}})
+$rawAdapters=@(Get-NetAdapter -ErrorAction SilentlyContinue)
+$dns=@($rawAdapters | ForEach-Object { $ns=[string](Get-ItemProperty -Path ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\'+$_.InterfaceGuid) -Name 'NameServer' -ErrorAction SilentlyContinue).NameServer; [pscustomobject]@{Index=[int]$_.ifIndex;NameServer=$ns;Servers=if([string]::IsNullOrWhiteSpace($ns)){@()}else{@($ns -split '[,\s;]+' | Where-Object {$_})}} })
 $ghosts=@(Get-PnpDevice -Class Net | Where-Object {$_.Status -ne 'OK'} | Select-Object @{n='Id';e={$_.InstanceId}},@{n='Name';e={$_.FriendlyName}},@{n='Status';e={$_.Status.ToString()}})
 $best=0; try { $best=[int](Find-NetRoute -RemoteIPAddress '8.8.8.8' | Select-Object -First 1).InterfaceIndex } catch {}
-$adapters=@(Get-NetAdapter -ErrorAction SilentlyContinue | Select-Object @{n='Index';e={[int]$_.ifIndex}},@{n='Desc';e={$_.InterfaceDescription}})
+$adapters=@($rawAdapters | Select-Object @{n='Index';e={[int]$_.ifIndex}},@{n='Desc';e={$_.InterfaceDescription}})
 $owners=@(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p=Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; [pscustomobject]@{Port=[int]$_.LocalPort;Pid=[int]$_.OwningProcess;Name=if($p){$p.ProcessName}else{''}} })
 $src4=''; $src5=''
 try { $src4=[string](Find-NetRoute -RemoteIPAddress '8.8.8.8' | Select-Object -First 1).IPAddress } catch {}
@@ -314,6 +315,12 @@ try { $src5=[string](Find-NetRoute -RemoteIPAddress '223.5.5.5' | Select-Object 
         return match.Success && int.TryParse(match.Groups[1].Value, out var port) && port <= 65535 ? port : 0;
     }
 
+    public static IReadOnlyList<string> ParseStaticDnsServers(string? nameServer)
+        => string.IsNullOrWhiteSpace(nameServer)
+            ? Array.Empty<string>()
+            : nameServer.Split(new[] { ',', ';', ' ', '\t', '\r', '\n' },
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
     public static bool IsElevated()
     {
         try
@@ -397,7 +404,10 @@ try { $src5=[string](Find-NetRoute -RemoteIPAddress '223.5.5.5' | Select-Object 
                 Addrs = Items(root,"Addrs").Select(item => new AddressFact(
                     Int(item, "Index"), Str(item, "Address"))).ToArray(),
                 Dns = Items(root,"Dns").Select(item => new DnsFact(
-                    Int(item, "Index"), Strings(item, "Servers"))).ToArray(),
+                    Int(item, "Index"),
+                    item.TryGetProperty("NameServer", out var ns)
+                        ? ParseStaticDnsServers(ns.ValueKind == JsonValueKind.String ? ns.GetString() : null)
+                        : Strings(item, "Servers"))).ToArray(),
                 Ghosts = Items(root,"Ghosts").Select(item => new GhostDeviceSnapshot(
                     Str(item, "Id"), Str(item, "Name"), Str(item, "Status"))).ToArray(),
                 Adapters = Items(root,"Adapters").Select(item => new AdapterFact(

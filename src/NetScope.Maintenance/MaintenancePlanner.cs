@@ -93,7 +93,13 @@ public static class MaintenancePlanner
         }
 
         // ---- 2. Stale egress: old interface still holds a default route ----
-        var defaultRoutes = snapshot.Interfaces.Where(item => item.HasDefaultRoute).ToArray();
+        var defaultRoutes = snapshot.Interfaces
+            .Where(item => item.HasDefaultRoute
+                && !(snapshot.ActiveEgressIndex > 0
+                    && item.Index != snapshot.ActiveEgressIndex
+                    && item.Connectivity != "Internet"
+                    && item.InterfaceMetric >= HighInterfaceMetric))
+            .ToArray();
         if (defaultRoutes.Length > 1)
         {
             findings.Add(new Finding(
@@ -111,28 +117,32 @@ public static class MaintenancePlanner
             if (snapshot.ActiveEgressIndex > 0 && iface.Index == snapshot.ActiveEgressIndex) continue;
             if (!WindowsMaintenanceProbe.IsPhysical(iface.Alias)) continue;
 
-            findings.Add(new Finding(
-                "STALE_EGRESS", "旧出口接口：" + iface.Alias,
-                "if=" + iface.Index + " [" + iface.Connectivity + "] 仍持有 0.0.0.0/0 默认路由，网关 " + iface.NextHop
-                    + "，接口度量 " + iface.InterfaceMetric + "（与有网出口同权重时会抢走出站）。",
-                FindingSeverity.Warning,
-                new[] { "IP=" + string.Join(",", iface.Addresses), "网关=" + iface.NextHop }));
-
-            if (snapshot.ActiveEgressIndex > 0 && iface.InterfaceMetric < HighInterfaceMetric)
+            var yielded = snapshot.ActiveEgressIndex > 0 && iface.InterfaceMetric >= HighInterfaceMetric;
+            if (!yielded)
             {
-                actions.Add(new RepairAction(
-                    "raise-metric:" + iface.Index, "调高 " + iface.Alias + " 接口度量",
-                    "接口度量 " + iface.InterfaceMetric + " → " + HighInterfaceMetric + "（自动度量 Disabled），让有网出口胜出；不禁用网卡、不删路由",
-                    ActionRisk.Elevated, "RaiseInterfaceMetric", "if=" + iface.Index,
-                    iface.InterfaceMetric + "/" + iface.AutomaticMetric,
-                    HighInterfaceMetric.ToString(), true, true,
-                    new Dictionary<string, string>
-                    {
-                        ["Index"] = iface.Index.ToString(),
-                        ["Alias"] = iface.Alias,
-                        ["PreMetric"] = iface.InterfaceMetric.ToString(),
-                        ["PreAuto"] = iface.AutomaticMetric,
-                    }));
+                findings.Add(new Finding(
+                    "STALE_EGRESS", "旧出口接口：" + iface.Alias,
+                    "if=" + iface.Index + " [" + iface.Connectivity + "] 仍持有 0.0.0.0/0 默认路由，网关 " + iface.NextHop
+                        + "，接口度量 " + iface.InterfaceMetric + "（与有网出口同权重时会抢走出站）。",
+                    FindingSeverity.Warning,
+                    new[] { "IP=" + string.Join(",", iface.Addresses), "网关=" + iface.NextHop }));
+
+                if (snapshot.ActiveEgressIndex > 0)
+                {
+                    actions.Add(new RepairAction(
+                        "raise-metric:" + iface.Index, "调高 " + iface.Alias + " 接口度量",
+                        "接口度量 " + iface.InterfaceMetric + " → " + HighInterfaceMetric + "（自动度量 Disabled），让有网出口胜出；不禁用网卡、不删路由",
+                        ActionRisk.Elevated, "RaiseInterfaceMetric", "if=" + iface.Index,
+                        iface.InterfaceMetric + "/" + iface.AutomaticMetric,
+                        HighInterfaceMetric.ToString(), true, true,
+                        new Dictionary<string, string>
+                        {
+                            ["Index"] = iface.Index.ToString(),
+                            ["Alias"] = iface.Alias,
+                            ["PreMetric"] = iface.InterfaceMetric.ToString(),
+                            ["PreAuto"] = iface.AutomaticMetric,
+                        }));
+                }
             }
 
             if (iface.DnsServers.Count > 0 && iface.Dhcp == "Enabled")
