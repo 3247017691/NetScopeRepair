@@ -78,8 +78,9 @@
     <SolidColorBrush x:Key="ScrollThumbHover" Color="{StaticResource ScrollThumbHoverColor}" />
 
 
-    <!-- UI typeface: Inter (embedded, Linear's face) for Latin, Microsoft YaHei UI fallback for CJK. -->
-    <FontFamily x:Key="UiFont">pack://application:,,,/Resources/Fonts/#Inter, Microsoft YaHei UI</FontFamily>
+    <!-- UI typeface: IBM Plex Sans (embedded, OFL) for Latin, Microsoft YaHei UI fallback for CJK. -->
+    <FontFamily x:Key="UiFont">pack://application:,,,/Resources/Fonts/#IBM Plex Sans, Microsoft YaHei UI</FontFamily>
+    <FontFamily x:Key="MonoFont">pack://application:,,,/Resources/Fonts/#IBM Plex Mono, Consolas</FontFamily>
 
     <!-- Keyboard focus ring (clean, no layout shift). -->
     <Style x:Key="FocusVisual">
@@ -137,7 +138,7 @@
     </Style>
 
     <Style x:Key="Mono" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{StaticResource Ink}" />
         <Setter Property="TextWrapping" Value="Wrap" />

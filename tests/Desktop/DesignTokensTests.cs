@@ -32,4 +32,44 @@ public sealed class DesignTokensTests
         Assert.Same(UiText.AccentBgBrush, UiText.SoftBackground(UiText.AccentBrush));
         Assert.Same(UiText.GapBgBrush, UiText.SoftBackground(UiText.GapBrush));
     }
+
+    [Fact]
+    public void Plex_sans_resolves_four_weights()
+    {
+        var typefaces = EmbeddedFontFamily("IBM Plex Sans").GetTypefaces();
+        var weights = typefaces.Select(t => t.Weight).ToHashSet();
+        Assert.Contains(System.Windows.FontWeights.Normal, weights);
+        Assert.Contains(System.Windows.FontWeights.Medium, weights);
+        Assert.Contains(System.Windows.FontWeights.SemiBold, weights);
+        Assert.Contains(System.Windows.FontWeights.Bold, weights);
+        Assert.All(typefaces, t =>
+        {
+            Assert.True(t.TryGetGlyphTypeface(out var glyph));
+            Assert.Contains("ibmplexsans-", glyph.FontUri.ToString());
+        });
+    }
+
+    [Fact]
+    public void Plex_mono_resolves_regular_and_medium()
+    {
+        var typefaces = EmbeddedFontFamily("IBM Plex Mono").GetTypefaces();
+        var weights = typefaces.Select(t => t.Weight).ToHashSet();
+        Assert.Contains(System.Windows.FontWeights.Normal, weights);
+        Assert.Contains(System.Windows.FontWeights.Medium, weights);
+        Assert.All(typefaces, t =>
+        {
+            Assert.True(t.TryGetGlyphTypeface(out var glyph));
+            Assert.Contains("ibmplexmono-", glyph.FontUri.ToString());
+        });
+    }
+
+    // The xUnit host registers neither the pack scheme nor WPF's application model, and its
+    // entry assembly is testhost; both touches are MTA-safe and ;component targets Desktop explicitly.
+    private static System.Windows.Media.FontFamily EmbeddedFontFamily(string name)
+    {
+        _ = System.Windows.Application.ResourceAssembly;
+        _ = System.IO.Packaging.PackUriHelper.Create(new Uri("http://localhost/"));
+        return new System.Windows.Media.FontFamily(
+            new Uri("pack://application:,,,/NetScope.Desktop;component/Resources/Fonts/"), "./#" + name);
+    }
 }
